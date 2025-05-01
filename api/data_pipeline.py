@@ -456,6 +456,78 @@ def get_file_content(repo_url: str, file_path: str, access_token: str = None) ->
     else:
         raise ValueError("Unsupported repository URL. Only GitHub and GitLab are supported.")
 
+def get_local_repo_structure(repo_url: str, access_token: str = None) -> str:
+    """
+    Gets the file structure of a repository from the local filesystem.
+    This is used as a fallback when the GitHub/GitLab API fails for large repositories.
+
+    Args:
+        repo_url (str): The URL of the repository
+        access_token (str, optional): Access token for private repositories (used for cloning if needed)
+
+    Returns:
+        str: A newline-separated list of file paths in the repository
+
+    Raises:
+        ValueError: If the repository cannot be found or accessed
+    """
+    try:
+        # Get the root path for adalflow
+        root_path = get_adalflow_default_root_path()
+
+        # Extract repo name based on the URL format
+        if "github.com" in repo_url:
+            # GitHub URL format: https://github.com/owner/repo
+            repo_name = repo_url.split("/")[-1].replace(".git", "")
+        elif "gitlab.com" in repo_url:
+            # GitLab URL format: https://gitlab.com/owner/repo or https://gitlab.com/group/subgroup/repo
+            # Use the last part of the URL as the repo name
+            repo_name = repo_url.split("/")[-1].replace(".git", "")
+        else:
+            # Generic handling for other Git URLs
+            repo_name = repo_url.split("/")[-1].replace(".git", "")
+
+        # Construct the path to the local repository
+        repo_path = os.path.join(root_path, "repos", repo_name)
+
+        # Check if the repository exists locally
+        if not os.path.exists(repo_path) or not os.listdir(repo_path):
+            # If not, try to clone it
+            logger.info(f"Repository not found locally at {repo_path}. Attempting to clone...")
+            download_repo(repo_url, repo_path, access_token)
+
+        # Get excluded files and directories from config
+        excluded_dirs = configs.get("file_filters", {}).get("excluded_dirs", [".venv", "node_modules"])
+        excluded_files = configs.get("file_filters", {}).get("excluded_files", ["package-lock.json"])
+
+        # Walk the repository directory and collect file paths
+        file_paths = []
+        for root, dirs, files in os.walk(repo_path):
+            # Skip excluded directories
+            dirs[:] = [d for d in dirs if not any(excluded in os.path.join(root, d) for excluded in excluded_dirs)]
+
+            for file in files:
+                # Skip excluded files
+                if any(file == excluded for excluded in excluded_files):
+                    continue
+
+                # Get the relative path from the repository root
+                full_path = os.path.join(root, file)
+                relative_path = os.path.relpath(full_path, repo_path)
+
+                # Add to the list of file paths
+                file_paths.append(relative_path)
+
+        # Sort the file paths for consistency
+        file_paths.sort()
+
+        # Join the file paths with newlines
+        return "\n".join(file_paths)
+
+    except Exception as e:
+        logger.error(f"Error getting local repository structure: {e}")
+        raise ValueError(f"Failed to get local repository structure: {str(e)}")
+
 class DatabaseManager:
     """
     Manages the creation, loading, transformation, and persistence of LocalDB instances.

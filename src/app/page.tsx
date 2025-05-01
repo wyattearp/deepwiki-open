@@ -670,7 +670,7 @@ IMPORTANT:
     }
   }, [generatePageContent, githubToken, gitlabToken, repoInfo.type, pagesInProgress.size]);
 
-  // Fetch repository structure using GitHub or GitLab API
+  // Fetch repository structure using GitHub or GitLab API with fallback to backend API
   const fetchRepositoryStructure = useCallback(async () => {
     // Reset previous state
     setWikiStructure(undefined);
@@ -697,166 +697,258 @@ IMPORTANT:
 
       let fileTreeData = '';
       let readmeContent = '';
+      let useBackendApi = false;
 
-      if (type === 'github') {
-        // GitHub API approach
-        // Try to get the tree data for common branch names
-        let treeData = null;
-        let apiErrorDetails = '';
+      // First try the direct GitHub/GitLab API approach
+      try {
+        if (type === 'github') {
+          // GitHub API approach
+          // Try to get the tree data for common branch names
+          let treeData = null;
+          let apiErrorDetails = '';
 
-        for (const branch of ['main', 'master']) {
-          const apiUrl = `https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`;
-          const headers: HeadersInit = {
-            'Accept': 'application/vnd.github.v3+json'
-          };
-
-          // Add GitHub token if available
-          if (githubToken) {
-            headers['Authorization'] = `Bearer ${githubToken}`;
-          }
-
-          console.log(`Fetching repository structure from branch: ${branch}`);
-          try {
-            const response = await fetch(apiUrl, {
-              headers
-            });
-
-            if (response.ok) {
-              treeData = await response.json();
-              console.log('Successfully fetched repository structure');
-              break;
-            } else {
-              const errorData = await response.text();
-              apiErrorDetails = `Status: ${response.status}, Response: ${errorData}`;
-              console.error(`Error fetching repository structure: ${apiErrorDetails}`);
-            }
-          } catch (err) {
-            console.error(`Network error fetching branch ${branch}:`, err);
-          }
-        }
-
-        if (!treeData || !treeData.tree) {
-          if (apiErrorDetails) {
-            throw new Error(`Could not fetch repository structure. API Error: ${apiErrorDetails}`);
-          } else {
-            throw new Error('Could not fetch repository structure. Repository might not exist, be empty or private.');
-          }
-        }
-
-        // Convert tree data to a string representation
-        fileTreeData = treeData.tree
-          .filter((item: { type: string; path: string }) => item.type === 'blob')
-          .map((item: { type: string; path: string }) => item.path)
-          .join('\n');
-
-        // Try to fetch README.md content
-        try {
-          const headers: HeadersInit = {
-            'Accept': 'application/vnd.github.v3+json'
-          };
-
-          // Add GitHub token if available
-          if (githubToken) {
-            headers['Authorization'] = `Bearer ${githubToken}`;
-          }
-
-          const readmeResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/readme`, {
-            headers
-          });
-
-          if (readmeResponse.ok) {
-            const readmeData = await readmeResponse.json();
-            readmeContent = atob(readmeData.content);
-          } else {
-            console.warn(`Could not fetch README.md, status: ${readmeResponse.status}`);
-          }
-        } catch (err) {
-          console.warn('Could not fetch README.md, continuing with empty README', err);
-        }
-      }
-      else if (type === 'gitlab') {
-        // GitLab API approach
-        const projectPath = fullPath || `${owner}/${repo}`;
-        const encodedProjectPath = encodeURIComponent(projectPath);
-
-        // Try to get the file tree for common branch names
-        let filesData = null;
-        let apiErrorDetails = '';
-
-        for (const branch of ['main', 'master']) {
-          const apiUrl = `https://gitlab.com/api/v4/projects/${encodedProjectPath}/repository/tree?recursive=true&ref=${branch}&per_page=100`;
-          const headers: HeadersInit = {
-            'Content-Type': 'application/json',
-          };
-
-          // Add GitLab token if available
-          if (gitlabToken) {
-            headers['PRIVATE-TOKEN'] = gitlabToken;
-          }
-
-          console.log(`Fetching GitLab repository structure from branch: ${branch}`);
-          try {
-            const response = await fetch(apiUrl, {
-              headers
-            });
-
-            if (response.ok) {
-              filesData = await response.json();
-              console.log('Successfully fetched GitLab repository structure');
-              break;
-            } else {
-              const errorData = await response.text();
-              apiErrorDetails = `Status: ${response.status}, Response: ${errorData}`;
-              console.error(`Error fetching GitLab repository structure: ${apiErrorDetails}`);
-            }
-          } catch (err) {
-            console.error(`Network error fetching GitLab branch ${branch}:`, err);
-          }
-        }
-
-        if (!filesData || !Array.isArray(filesData) || filesData.length === 0) {
-          if (apiErrorDetails) {
-            throw new Error(`Could not fetch repository structure. GitLab API Error: ${apiErrorDetails}`);
-          } else {
-            throw new Error('Could not fetch repository structure. Repository might not exist, be empty or private.');
-          }
-        }
-
-        // Convert files data to a string representation
-        fileTreeData = filesData
-          .filter((item: { type: string; path: string }) => item.type === 'blob')
-          .map((item: { type: string; path: string }) => item.path)
-          .join('\n');
-
-        // Try to fetch README.md content
-        try {
           for (const branch of ['main', 'master']) {
-            const readmeUrl = `https://gitlab.com/api/v4/projects/${encodedProjectPath}/repository/files/README.md/raw?ref=${branch}`;
-            const headers: HeadersInit = {};
+            const apiUrl = `https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`;
+            const headers: HeadersInit = {
+              'Accept': 'application/vnd.github.v3+json'
+            };
+
+            // Add GitHub token if available
+            if (githubToken) {
+              headers['Authorization'] = `Bearer ${githubToken}`;
+            }
+
+            console.log(`Fetching repository structure from branch: ${branch}`);
+            try {
+              const response = await fetch(apiUrl, {
+                headers
+              });
+
+              if (response.ok) {
+                treeData = await response.json();
+                console.log('Successfully fetched repository structure');
+                break;
+              } else {
+                const errorData = await response.text();
+                apiErrorDetails = `Status: ${response.status}, Response: ${errorData}`;
+                console.error(`Error fetching repository structure: ${apiErrorDetails}`);
+              }
+            } catch (err) {
+              console.error(`Network error fetching branch ${branch}:`, err);
+            }
+          }
+
+          if (!treeData || !treeData.tree) {
+            console.warn('GitHub API approach failed, will try backend API fallback');
+            useBackendApi = true;
+          } else {
+            // Convert tree data to a string representation
+            fileTreeData = treeData.tree
+              .filter((item: { type: string; path: string }) => item.type === 'blob')
+              .map((item: { type: string; path: string }) => item.path)
+              .join('\n');
+          }
+
+          // Try to fetch README.md content
+          if (!useBackendApi) {
+            try {
+              const headers: HeadersInit = {
+                'Accept': 'application/vnd.github.v3+json'
+              };
+
+              // Add GitHub token if available
+              if (githubToken) {
+                headers['Authorization'] = `Bearer ${githubToken}`;
+              }
+
+              const readmeResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/readme`, {
+                headers
+              });
+
+              if (readmeResponse.ok) {
+                const readmeData = await readmeResponse.json();
+                readmeContent = atob(readmeData.content);
+              } else {
+                console.warn(`Could not fetch README.md, status: ${readmeResponse.status}`);
+              }
+            } catch (err) {
+              console.warn('Could not fetch README.md, continuing with empty README', err);
+            }
+          }
+        }
+        else if (type === 'gitlab') {
+          // GitLab API approach
+          const projectPath = fullPath || `${owner}/${repo}`;
+          const encodedProjectPath = encodeURIComponent(projectPath);
+
+          // Try to get the file tree for common branch names
+          let filesData = null;
+          let apiErrorDetails = '';
+
+          for (const branch of ['main', 'master']) {
+            const apiUrl = `https://gitlab.com/api/v4/projects/${encodedProjectPath}/repository/tree?recursive=true&ref=${branch}&per_page=100`;
+            const headers: HeadersInit = {
+              'Content-Type': 'application/json',
+            };
 
             // Add GitLab token if available
             if (gitlabToken) {
               headers['PRIVATE-TOKEN'] = gitlabToken;
             }
 
+            console.log(`Fetching GitLab repository structure from branch: ${branch}`);
             try {
-              const readmeResponse = await fetch(readmeUrl, {
+              const response = await fetch(apiUrl, {
                 headers
               });
 
-              if (readmeResponse.ok) {
-                readmeContent = await readmeResponse.text();
-                console.log('Successfully fetched GitLab README.md');
+              if (response.ok) {
+                filesData = await response.json();
+                console.log('Successfully fetched GitLab repository structure');
                 break;
               } else {
-                console.warn(`Could not fetch GitLab README.md for branch ${branch}, status: ${readmeResponse.status}`);
+                const errorData = await response.text();
+                apiErrorDetails = `Status: ${response.status}, Response: ${errorData}`;
+                console.error(`Error fetching GitLab repository structure: ${apiErrorDetails}`);
               }
             } catch (err) {
-              console.warn(`Error fetching GitLab README.md for branch ${branch}:`, err);
+              console.error(`Network error fetching GitLab branch ${branch}:`, err);
             }
           }
-        } catch (err) {
-          console.warn('Could not fetch GitLab README.md, continuing with empty README', err);
+
+          if (!filesData || !Array.isArray(filesData) || filesData.length === 0) {
+            console.warn('GitLab API approach failed, will try backend API fallback');
+            useBackendApi = true;
+          } else {
+            // Convert files data to a string representation
+            fileTreeData = filesData
+              .filter((item: { type: string; path: string }) => item.type === 'blob')
+              .map((item: { type: string; path: string }) => item.path)
+              .join('\n');
+          }
+
+          // Try to fetch README.md content
+          if (!useBackendApi) {
+            try {
+              for (const branch of ['main', 'master']) {
+                const readmeUrl = `https://gitlab.com/api/v4/projects/${encodedProjectPath}/repository/files/README.md/raw?ref=${branch}`;
+                const headers: HeadersInit = {};
+
+                // Add GitLab token if available
+                if (gitlabToken) {
+                  headers['PRIVATE-TOKEN'] = gitlabToken;
+                }
+
+                try {
+                  const readmeResponse = await fetch(readmeUrl, {
+                    headers
+                  });
+
+                  if (readmeResponse.ok) {
+                    readmeContent = await readmeResponse.text();
+                    console.log('Successfully fetched GitLab README.md');
+                    break;
+                  } else {
+                    console.warn(`Could not fetch GitLab README.md for branch ${branch}, status: ${readmeResponse.status}`);
+                  }
+                } catch (err) {
+                  console.warn(`Error fetching GitLab README.md for branch ${branch}:`, err);
+                }
+              }
+            } catch (err) {
+              console.warn('Could not fetch GitLab README.md, continuing with empty README', err);
+            }
+          }
+        }
+      } catch (directApiError) {
+        console.error('Error with direct API approach:', directApiError);
+        useBackendApi = true;
+      }
+
+      // If direct API approach failed, use the backend API as fallback
+      if (useBackendApi) {
+        console.log('Using backend API fallback to get repository structure');
+        setLoadingMessage('Using backend API to fetch repository structure...');
+
+        try {
+          // Prepare request body
+          const requestBody: {
+            repo_url: string;
+            github_token?: string;
+            gitlab_token?: string;
+          } = {
+            repo_url: type === 'github'
+              ? `https://github.com/${owner}/${repo}`
+              : `https://gitlab.com/${owner}/${repo}`
+          };
+
+          // Add tokens if available
+          if (githubToken && type === 'github') {
+            requestBody.github_token = githubToken;
+          }
+          if (gitlabToken && type === 'gitlab') {
+            requestBody.gitlab_token = gitlabToken;
+          }
+
+          // Make the request to our backend API
+          const response = await fetch('http://localhost:8001/repo/structure', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody)
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text().catch(() => 'No error details available');
+            throw new Error(`Backend API error (${response.status}): ${errorText}`);
+          }
+
+          const data = await response.json();
+          fileTreeData = data.file_tree;
+
+          console.log('Successfully fetched repository structure from backend API');
+
+          // Try to fetch README.md content using the backend API
+          try {
+            const readmeResponse = await fetch('http://localhost:8001/chat/completions/stream', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                ...requestBody,
+                messages: [{
+                  role: 'user',
+                  content: 'Return the content of the README.md file. Only return the raw content, no explanations or markdown formatting.'
+                }]
+              })
+            });
+
+            if (readmeResponse.ok) {
+              const reader = readmeResponse.body?.getReader();
+              const decoder = new TextDecoder();
+
+              if (reader) {
+                let readmeText = '';
+                while (true) {
+                  const { done, value } = await reader.read();
+                  if (done) break;
+                  readmeText += decoder.decode(value, { stream: true });
+                }
+                readmeText += decoder.decode(); // Final decode
+
+                // Update the readme content
+                readmeContent = readmeText;
+              }
+            }
+          } catch (readmeError) {
+            console.warn('Could not fetch README.md from backend API, continuing with empty README', readmeError);
+          }
+        } catch (error) {
+          const backendApiError = error as Error;
+          console.error('Backend API fallback also failed:', backendApiError);
+          throw new Error(`Could not fetch repository structure: ${backendApiError.message || String(backendApiError)}`);
         }
       }
 

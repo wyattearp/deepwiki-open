@@ -1,5 +1,7 @@
 import os
 import logging
+import json
+import subprocess
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -8,7 +10,7 @@ from starlette.responses import StreamingResponse
 import google.generativeai as genai
 
 from api.rag import RAG
-from api.data_pipeline import count_tokens, get_file_content
+from api.data_pipeline import count_tokens, get_file_content, get_local_repo_structure
 
 # Configure logging
 logging.basicConfig(
@@ -312,6 +314,168 @@ This file contains...
         logger.error(error_msg)
         raise HTTPException(status_code=500, detail=error_msg)
 
+class RepoStructureRequest(BaseModel):
+    """
+    Model for requesting repository structure.
+    """
+    repo_url: str = Field(..., description="URL of the repository to get structure for")
+    github_token: Optional[str] = Field(None, description="GitHub personal access token for private repositories")
+    gitlab_token: Optional[str] = Field(None, description="GitLab personal access token for private repositories")
+
+@app.post("/repo/structure")
+async def get_repository_structure(request: RepoStructureRequest):
+    """
+    Get the file structure of a repository.
+    This endpoint will first try to use the GitHub/GitLab API, and if that fails,
+    it will fall back to using the local filesystem.
+    """
+    try:
+        # Determine which access token to use based on the repository URL
+        access_token = None
+        if "github.com" in request.repo_url and request.github_token:
+            access_token = request.github_token
+            logger.info("Using GitHub token for authentication")
+        elif "gitlab.com" in request.repo_url and request.gitlab_token:
+            access_token = request.gitlab_token
+            logger.info("Using GitLab token for authentication")
+
+        # Parse repository URL to extract owner and repo
+        repo_url = request.repo_url
+        repo_type = "github"  # Default to GitHub
+        owner = ""
+        repo = ""
+
+        if "github.com" in repo_url:
+            # GitHub URL format
+            parts = repo_url.replace('https://github.com/', '').split('/')
+            owner = parts[0] or ''
+            repo = parts[1] or ''
+            repo_type = "github"
+        elif "gitlab.com" in repo_url:
+            # GitLab URL format
+            parts = repo_url.replace('https://gitlab.com/', '').split('/')
+
+            # GitLab can have nested groups, so the repo is the last part
+            # and the owner/group is everything before that
+            if len(parts) >= 2:
+                repo = parts[-1] or ''
+                owner = parts[0] or ''
+                repo_type = "gitlab"
+        else:
+            # Handle owner/repo format (assume GitHub by default)
+            parts = repo_url.split('/')
+            owner = parts[0] or ''
+            repo = parts[1] or ''
+
+        # Clean values and remove .git suffix if present
+        owner = owner.strip()
+        repo = repo.strip()
+        if repo.endswith('.git'):
+            repo = repo[:-4]
+
+        if not owner or not repo:
+            raise ValueError("Invalid repository format. Could not extract owner and repo name.")
+
+        # Try to get the repository structure using the GitHub/GitLab API first
+        try:
+            file_tree_data = ""
+
+            if repo_type == "github":
+                # Try to get the tree data for common branch names
+                for branch in ['main', 'master']:
+                    api_url = f"https://api.github.com/repos/{owner}/{repo}/git/trees/{branch}?recursive=1"
+                    headers = {'Accept': 'application/vnd.github.v3+json'}
+
+                    # Add GitHub token if available
+                    if access_token:
+                        headers['Authorization'] = f"Bearer {access_token}"
+
+                    logger.info(f"Fetching repository structure from GitHub API for branch: {branch}")
+                    try:
+                        # Use subprocess to make the request
+                        curl_cmd = ["curl", "-s"]
+                        for key, value in headers.items():
+                            curl_cmd.extend(["-H", f"{key}: {value}"])
+                        curl_cmd.append(api_url)
+
+                        result = subprocess.run(
+                            curl_cmd,
+                            check=True,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                        )
+
+                        response_data = json.loads(result.stdout.decode("utf-8"))
+
+                        if "tree" in response_data:
+                            # Convert tree data to a string representation
+                            file_tree_data = "\n".join([
+                                item["path"] for item in response_data["tree"]
+                                if item.get("type") == "blob"
+                            ])
+                            logger.info(f"Successfully fetched repository structure from GitHub API for branch: {branch}")
+                            break
+                    except Exception as e:
+                        logger.warning(f"Error fetching GitHub repository structure for branch {branch}: {e}")
+
+            elif repo_type == "gitlab":
+                # Try to get the file tree for common branch names in GitLab
+                encoded_project_path = f"{owner}%2F{repo}"
+
+                for branch in ['main', 'master']:
+                    api_url = f"https://gitlab.com/api/v4/projects/{encoded_project_path}/repository/tree?recursive=true&ref={branch}&per_page=100"
+                    headers = {'Content-Type': 'application/json'}
+
+                    # Add GitLab token if available
+                    if access_token:
+                        headers['PRIVATE-TOKEN'] = access_token
+
+                    logger.info(f"Fetching repository structure from GitLab API for branch: {branch}")
+                    try:
+                        # Use subprocess to make the request
+                        curl_cmd = ["curl", "-s"]
+                        for key, value in headers.items():
+                            curl_cmd.extend(["-H", f"{key}: {value}"])
+                        curl_cmd.append(api_url)
+
+                        result = subprocess.run(
+                            curl_cmd,
+                            check=True,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                        )
+
+                        response_data = json.loads(result.stdout.decode("utf-8"))
+
+                        if isinstance(response_data, list) and len(response_data) > 0:
+                            # Convert files data to a string representation
+                            file_tree_data = "\n".join([
+                                item["path"] for item in response_data
+                                if item.get("type") == "blob"
+                            ])
+                            logger.info(f"Successfully fetched repository structure from GitLab API for branch: {branch}")
+                            break
+                    except Exception as e:
+                        logger.warning(f"Error fetching GitLab repository structure for branch {branch}: {e}")
+
+            # If we couldn't get the file tree data from the API, fall back to the local filesystem
+            if not file_tree_data:
+                logger.info("API-based repository structure fetch failed or returned empty result. Falling back to local filesystem.")
+                file_tree_data = get_local_repo_structure(repo_url, access_token)
+
+            return {"file_tree": file_tree_data}
+
+        except Exception as api_error:
+            # If the API approach fails, fall back to the local filesystem
+            logger.warning(f"Error fetching repository structure from API: {api_error}. Falling back to local filesystem.")
+            file_tree_data = get_local_repo_structure(repo_url, access_token)
+            return {"file_tree": file_tree_data}
+
+    except Exception as e:
+        error_msg = f"Error fetching repository structure: {str(e)}"
+        logger.error(error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
+
 @app.get("/")
 async def root():
     """Root endpoint to check if the API is running"""
@@ -321,6 +485,9 @@ async def root():
         "endpoints": {
             "Chat": [
                 "POST /chat/completions/stream - Streaming chat completion",
+            ],
+            "Repository": [
+                "POST /repo/structure - Get repository file structure",
             ]
         }
     }
