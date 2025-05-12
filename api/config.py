@@ -7,12 +7,17 @@ logger = logging.getLogger(__name__)
 
 from api.openai_client import OpenAIClient
 from api.openrouter_client import OpenRouterClient
+from api.bedrock_client import BedrockClient
 from adalflow import GoogleGenAIClient, OllamaClient
 
 # Get API keys from environment variables
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
 GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY')
 OPENROUTER_API_KEY = os.environ.get('OPENROUTER_API_KEY')
+AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
+AWS_REGION = os.environ.get('AWS_REGION')
+AWS_ROLE_ARN = os.environ.get('AWS_ROLE_ARN')
 
 # Set keys in environment (in case they're needed elsewhere in the code)
 if OPENAI_API_KEY:
@@ -21,6 +26,14 @@ if GOOGLE_API_KEY:
     os.environ["GOOGLE_API_KEY"] = GOOGLE_API_KEY
 if OPENROUTER_API_KEY:
     os.environ["OPENROUTER_API_KEY"] = OPENROUTER_API_KEY
+if AWS_ACCESS_KEY_ID:
+    os.environ["AWS_ACCESS_KEY_ID"] = AWS_ACCESS_KEY_ID
+if AWS_SECRET_ACCESS_KEY:
+    os.environ["AWS_SECRET_ACCESS_KEY"] = AWS_SECRET_ACCESS_KEY
+if AWS_REGION:
+    os.environ["AWS_REGION"] = AWS_REGION
+if AWS_ROLE_ARN:
+    os.environ["AWS_ROLE_ARN"] = AWS_ROLE_ARN
 
 # Get configuration directory from environment variable, or use default if not set
 CONFIG_DIR = os.environ.get('DEEPWIKI_CONFIG_DIR', None)
@@ -30,7 +43,8 @@ CLIENT_CLASSES = {
     "GoogleGenAIClient": GoogleGenAIClient,
     "OpenAIClient": OpenAIClient,
     "OpenRouterClient": OpenRouterClient,
-    "OllamaClient": OllamaClient
+    "OllamaClient": OllamaClient,
+    "BedrockClient": BedrockClient
 }
 
 # Load JSON configuration file
@@ -42,13 +56,13 @@ def load_json_config(filename):
         else:
             # Otherwise use default directory
             config_path = Path(__file__).parent / "config" / filename
-            
+
         logger.info(f"Loading configuration from {config_path}")
-        
+
         if not config_path.exists():
             logger.warning(f"Configuration file {config_path} does not exist")
             return {}
-            
+
         with open(config_path, 'r') as f:
             return json.load(f)
     except Exception as e:
@@ -58,7 +72,7 @@ def load_json_config(filename):
 # Load generator model configuration
 def load_generator_config():
     generator_config = load_json_config("generator.json")
-    
+
     # Add client classes to each provider
     if "providers" in generator_config:
         for provider_id, provider_config in generator_config["providers"].items():
@@ -66,30 +80,31 @@ def load_generator_config():
             if provider_config.get("client_class") in CLIENT_CLASSES:
                 provider_config["model_client"] = CLIENT_CLASSES[provider_config["client_class"]]
             # Fall back to default mapping based on provider_id
-            elif provider_id in ["google", "openai", "openrouter", "ollama"]:
+            elif provider_id in ["google", "openai", "openrouter", "ollama", "bedrock"]:
                 default_map = {
                     "google": GoogleGenAIClient,
                     "openai": OpenAIClient,
                     "openrouter": OpenRouterClient,
-                    "ollama": OllamaClient
+                    "ollama": OllamaClient,
+                    "bedrock": BedrockClient
                 }
                 provider_config["model_client"] = default_map[provider_id]
             else:
                 logger.warning(f"Unknown provider or client class: {provider_id}")
-    
+
     return generator_config
 
 # Load embedder configuration
 def load_embedder_config():
     embedder_config = load_json_config("embedder.json")
-    
+
     # Process client classes
     for key in ["embedder", "embedder_ollama"]:
         if key in embedder_config and "client_class" in embedder_config[key]:
             class_name = embedder_config[key]["client_class"]
             if class_name in CLIENT_CLASSES:
                 embedder_config[key]["model_client"] = CLIENT_CLASSES[class_name]
-    
+
     return embedder_config
 
 # Load repository and file filters configuration
@@ -124,32 +139,32 @@ if repo_config:
 def get_model_config(provider="google", model=None):
     """
     Get configuration for the specified provider and model
-    
+
     Parameters:
-        provider (str): Model provider ('google', 'openai', 'openrouter', 'ollama')
+        provider (str): Model provider ('google', 'openai', 'openrouter', 'ollama', 'bedrock')
         model (str): Model name, or None to use default model
-    
+
     Returns:
         dict: Configuration containing model_client, model and other parameters
     """
     # Get provider configuration
     if "providers" not in configs:
         raise ValueError("Provider configuration not loaded")
-        
+
     provider_config = configs["providers"].get(provider)
     if not provider_config:
         raise ValueError(f"Configuration for provider '{provider}' not found")
-    
+
     model_client = provider_config.get("model_client")
     if not model_client:
         raise ValueError(f"Model client not specified for provider '{provider}'")
-    
+
     # If model not provided, use default model for the provider
     if not model:
         model = provider_config.get("default_model")
         if not model:
             raise ValueError(f"No default model specified for provider '{provider}'")
-    
+
     # Get model parameters (if present)
     model_params = {}
     if model in provider_config.get("models", {}):
@@ -157,21 +172,21 @@ def get_model_config(provider="google", model=None):
     else:
         default_model = provider_config.get("default_model")
         model_params = provider_config["models"][default_model]
-    
+
     # Prepare base configuration
     result = {
         "model_client": model_client,
     }
-    
+
     # Provider-specific adjustments
     if provider == "ollama":
         # Ollama uses a slightly different parameter structure
         if "options" in model_params:
-            result["model_kwargs"] = {"model": model, **model_params["options"]} 
+            result["model_kwargs"] = {"model": model, **model_params["options"]}
         else:
             result["model_kwargs"] = {"model": model}
     else:
         # Standard structure for other providers
         result["model_kwargs"] = {"model": model, **model_params}
-    
+
     return result
