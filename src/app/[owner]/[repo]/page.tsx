@@ -3,12 +3,13 @@
 
 import React, { useCallback, useState, useMemo, useEffect, useRef } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import { FaExclamationTriangle, FaBookOpen, FaGithub, FaGitlab, FaBitbucket, FaDownload, FaFileExport, FaHome, FaFolder, FaSync, FaChevronUp, FaChevronDown } from 'react-icons/fa';
+import { FaExclamationTriangle, FaBookOpen, FaGithub, FaGitlab, FaBitbucket, FaDownload, FaFileExport, FaHome, FaFolder, FaSync, FaChevronUp, FaChevronDown, FaListUl, FaSitemap } from 'react-icons/fa';
 import Link from 'next/link';
 import ThemeToggle from '@/components/theme-toggle';
 import Markdown from '@/components/Markdown';
 import Ask from '@/components/Ask';
 import ModelSelectionModal from '@/components/ModelSelectionModal';
+import WikiTreeView from '@/components/WikiTreeView';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 // Wiki Interfaces
@@ -19,6 +20,16 @@ interface WikiPage {
   filePaths: string[];
   importance: 'high' | 'medium' | 'low';
   relatedPages: string[];
+  parentId?: string;
+  isSection?: boolean;
+  children?: string[];
+}
+
+interface WikiSection {
+  id: string;
+  title: string;
+  pages: string[];
+  subsections?: string[];
 }
 
 interface WikiStructure {
@@ -26,6 +37,8 @@ interface WikiStructure {
   title: string;
   description: string;
   pages: WikiPage[];
+  sections?: WikiSection[];
+  rootSections?: string[];
 }
 
 // Add CSS styles for wiki with Japanese aesthetic
@@ -113,16 +126,16 @@ const addTokensToRequestBody = (
   if (bitbucketToken && repoType === 'bitbucket') {
     requestBody.bitbucket_token = bitbucketToken;
   }
-  
+
   // Add provider-based model selection parameters
   requestBody.provider = provider;
   requestBody.model = model;
   if (isCustomModel && customModel) {
     requestBody.custom_model = customModel;
   }
-  
+
   requestBody.language = language;
-  
+
   // Add file filter parameters if provided
   if (excludedDirs) {
     requestBody.excluded_dirs = excludedDirs;
@@ -189,6 +202,7 @@ export default function RepoWikiPage() {
   const isCustomModelParam = searchParams.get('is_custom_model') === 'true';
   const customModelParam = searchParams.get('custom_model') || '';
   const language = searchParams.get('language') || 'en';
+  const isComprehensiveParam = searchParams.get('comprehensive') === 'true';
 
   // Import language context for translations
   const { messages } = useLanguage();
@@ -215,7 +229,7 @@ export default function RepoWikiPage() {
   const [exportError, setExportError] = useState<string | null>(null);
   const [originalMarkdown, setOriginalMarkdown] = useState<Record<string, string>>({});
   const [requestInProgress, setRequestInProgress] = useState(false);
-  
+
   // Model selection state variables
   const [selectedProviderState, setSelectedProviderState] = useState(providerParam);
   const [selectedModelState, setSelectedModelState] = useState(modelParam);
@@ -240,6 +254,10 @@ export default function RepoWikiPage() {
 
   // State for Ask section visibility
   const [isAskSectionVisible, setIsAskSectionVisible] = useState(true);
+
+  // State for wiki view mode (simple vs comprehensive)
+  // Initialize with the URL param, but we'll update this based on page count
+  const [isComprehensiveView, setIsComprehensiveView] = useState(isComprehensiveParam);
 
   // Memoize repo info to avoid triggering updates in callbacks
 
@@ -298,65 +316,91 @@ export default function RepoWikiPage() {
         // Get repository URL
         const repoUrl = getRepoUrl(owner, repo, repoInfo.type, repoInfo.localPath);
 
-        // Create the prompt content - simplified to avoid message dialogs
+        // Create the prompt content using the new robust template
         const promptContent =
-`Generate comprehensive wiki page content for "${page.title}" in the repository ${owner}/${repo}.
+`You are an expert technical writer and software architect.
+Your task is to generate a comprehensive and accurate technical wiki page in Markdown format about a specific feature, system, or module within a given software project.
 
-This page should focus on the following files:
-${filePaths.map(path => `- ${path}`).join('\n')}
+You will be given:
+1. The "[WIKI_PAGE_TOPIC]" for the page you need to create.
+2. A list of "[RELEVANT_SOURCE_FILES]" from the project that you MUST use as the sole basis for the content. You have access to the full content of these files. You MUST use AT LEAST 5 relevant source files for comprehensive coverage - if fewer are provided, search for additional related files in the codebase.
+
+CRITICAL STARTING INSTRUCTION:
+The very first thing on the page MUST be a \`<details>\` block listing ALL the \`[RELEVANT_SOURCE_FILES]\` you used to generate the content. There MUST be AT LEAST 5 source files listed - if fewer were provided, you MUST find additional related files to include.
+Format it exactly like this:
+<details>
+<summary>Relevant source files</summary>
+
+The following files were used as context for generating this wiki page:
+
+${filePaths.map(path => `- [${path}](${path})`).join('\n')}
+<!-- Add additional relevant files if fewer than 5 were provided -->
+</details>
+
+Immediately after the \`<details>\` block, the main title of the page should be a H1 Markdown heading: \`# ${page.title}\`.
+
+Based ONLY on the content of the \`[RELEVANT_SOURCE_FILES]\`:
+
+1.  **Introduction:** Start with a concise introduction (1-2 paragraphs) explaining the purpose, scope, and high-level overview of "${page.title}" within the context of the overall project. If relevant, and if information is available in the provided files, link to other potential wiki pages using the format \`[Link Text](#page-anchor-or-id)\`.
+
+2.  **Detailed Sections:** Break down "${page.title}" into logical sections using H2 (\`##\`) and H3 (\`###\`) Markdown headings. For each section:
+    *   Explain the architecture, components, data flow, or logic relevant to the section's focus, as evidenced in the source files.
+    *   Identify key functions, classes, data structures, API endpoints, or configuration elements pertinent to that section.
+
+3.  **Mermaid Diagrams:**
+    *   EXTENSIVELY use Mermaid diagrams (e.g., \`flowchart TD\`, \`sequenceDiagram\`, \`classDiagram\`, \`erDiagram\`, \`graph TD\`) to visually represent architectures, flows, relationships, and schemas found in the source files.
+    *   Ensure diagrams are accurate and directly derived from information in the \`[RELEVANT_SOURCE_FILES]\`.
+    *   Provide a brief explanation before or after each diagram to give context.
+    *   CRITICAL: All diagrams MUST follow strict vertical orientation:
+       - Use "graph TD" (top-down) directive for flow diagrams
+       - NEVER use "graph LR" (left-right)
+       - Maximum node width should be 3-4 words
+       - For sequence diagrams:
+         - Start with "sequenceDiagram" directive on its own line
+         - Define ALL participants at the beginning
+         - Use descriptive but concise participant names
+         - Use the correct arrow types:
+           - ->> for request/asynchronous messages
+           - -->> for response messages
+           - -x for failed messages
+         - Include activation boxes using +/- notation
+         - Add notes for clarification using "Note over" or "Note right of"
+
+4.  **Tables:**
+    *   Use Markdown tables to summarize information such as:
+        *   Key features or components and their descriptions.
+        *   API endpoint parameters, types, and descriptions.
+        *   Configuration options, their types, and default values.
+        *   Data model fields, types, constraints, and descriptions.
+
+5.  **Code Snippets:**
+    *   Include short, relevant code snippets (e.g., Python, Java, JavaScript, SQL, JSON, YAML) directly from the \`[RELEVANT_SOURCE_FILES]\` to illustrate key implementation details, data structures, or configurations.
+    *   Ensure snippets are well-formatted within Markdown code blocks with appropriate language identifiers.
+
+6.  **Source Citations (EXTREMELY IMPORTANT):**
+    *   For EVERY piece of significant information, explanation, diagram, table entry, or code snippet, you MUST cite the specific source file(s) and relevant line numbers from which the information was derived.
+    *   Place citations at the end of the paragraph, under the diagram/table, or after the code snippet.
+    *   Use the exact format: \`Sources: [filename.ext:start_line-end_line]()\` for a range, or \`Sources: [filename.ext:line_number]()\` for a single line. Multiple files can be cited: \`Sources: [file1.ext:1-10](), [file2.ext:5](), [dir/file3.ext]()\` (if the whole file is relevant and line numbers are not applicable or too broad).
+    *   If an entire section is overwhelmingly based on one or two files, you can cite them under the section heading in addition to more specific citations within the section.
+    *   IMPORTANT: You MUST cite AT LEAST 5 different source files throughout the wiki page to ensure comprehensive coverage.
+
+7.  **Technical Accuracy:** All information must be derived SOLELY from the \`[RELEVANT_SOURCE_FILES]\`. Do not infer, invent, or use external knowledge about similar systems or common practices unless it's directly supported by the provided code. If information is not present in the provided files, do not include it or explicitly state its absence if crucial to the topic.
+
+8.  **Clarity and Conciseness:** Use clear, professional, and concise technical language suitable for other developers working on or learning about the project. Avoid unnecessary jargon, but use correct technical terms where appropriate.
+
+9.  **Conclusion/Summary:** End with a brief summary paragraph if appropriate for "${page.title}", reiterating the key aspects covered and their significance within the project.
 
 IMPORTANT: Generate the content in ${language === 'en' ? 'English' :
             language === 'ja' ? 'Japanese (日本語)' :
             language === 'zh' ? 'Mandarin Chinese (中文)' :
-            language === 'es' ? 'Spanish (Español)' : 
-            language === 'kr' ? 'Korean (한국어)' : 
+            language === 'es' ? 'Spanish (Español)' :
+            language === 'kr' ? 'Korean (한국어)' :
             language === 'vi' ? 'Vietnamese (Tiếng Việt)' : 'English'} language.
 
-Include:
-- Clear introduction explaining what "${page.title}" is
-- Explanation of purpose and functionality
-- Code snippets when helpful (less than 20 lines)
-- At least one Mermaid diagram [Flow or Sequence] (use "graph TD" for vertical orientation)
-- Proper markdown formatting with code blocks and headings
-- Source links to relevant files: Eample: <p>Sources: <a href="https://github.com/AsyncFuncAI/deepwiki-open/blob/main/api/rag.py" target="_blank" rel="noopener noreferrer" class="mb-1 mr-1 inline-flex items-stretch font-mono text-xs !no-underline">SOURCE_DISPLAY</a></p>5. Explicitly explain how this component/feature integrates with the overall architecture
-
-
-Use proper markdown formatting for code blocks and include a vertical Mermaid diagram.
-
-### Mermaid Diagrams:
-1. MANDATORY: Include AT LEAST ONE relevant Mermaid diagram, most people prefer sequence diagrams if applicable.
-2. CRITICAL: All diagrams MUST follow strict vertical orientation:
-   - Use "graph TD" (top-down) directive for flow diagrams
-   - NEVER use "graph LR" (left-right)
-   - Maximum node width should be 3-4 words
-   - Example:
-     \`\`\`mermaid
-     graph TD
-       A[Start Process] --> B[Middle Step]
-       B --> C[End Result]
-     \`\`\`
-
-3. Flow Diagram Requirements:
-   - Use descriptive node IDs (e.g., UserAuth, DataProcess)
-   - ALL connections MUST use double dashes with arrows (-->)
-   - NEVER use single dash connections
-   - Add clear labels to connections when necessary: A -->|triggers| B
-   - Use appropriate node shapes based on type:
-     - Rectangle [Text] for components/modules
-     - Stadium ([Text]) for inputs/starting points
-     - Circle((Text)) for junction points
-     - Rhombus{Text} for decision points
-
-4. Sequence Diagram Requirements:
-   - Start with "sequenceDiagram" directive on its own line
-   - Define ALL participants at the beginning
-   - Use descriptive but concise participant names
-   - Use the correct arrow types:
-     - ->> for request/asynchronous messages
-     - -->> for response messages
-     - -x for failed messages
-   - Include activation boxes using +/- notation
-   - Add notes for clarification using "Note over" or "Note right of"
+Remember:
+- Ground every claim in the provided source files.
+- Prioritize accuracy and direct representation of the code's functionality and structure.
+- Structure the document logically for easy understanding by other developers.
 `;
 
         // Prepare request body
@@ -491,8 +535,8 @@ I want to create a wiki for this repository. Determine the most logical structur
 IMPORTANT: The wiki content will be generated in ${language === 'en' ? 'English' :
             language === 'ja' ? 'Japanese (日本語)' :
             language === 'zh' ? 'Mandarin Chinese (中文)' :
-            language === 'es' ? 'Spanish (Español)' : 
-            language === 'kr' ? 'Korean (한국어)' : 
+            language === 'es' ? 'Spanish (Español)' :
+            language === 'kr' ? 'Korean (한国語)' :
             language === 'vi' ? 'Vietnamese (Tiếng Việt)' : 'English'} language.
 
 When designing the wiki structure, include pages that would benefit from visual diagrams, such as:
@@ -503,6 +547,57 @@ When designing the wiki structure, include pages that would benefit from visual 
 - State machines
 - Class hierarchies
 
+${isComprehensiveView ? `
+Create a structured wiki with the following main sections:
+- Overview (general information about the project)
+- System Architecture (how the system is designed)
+- Core Features (key functionality)
+- Data Management/Flow: If applicable, how data is stored, processed, accessed, and managed (e.g., database schema, data pipelines, state management).
+- Frontend Components (UI elements, if applicable.)
+- Backend Systems (server-side components)
+- Model Integration (AI model connections)
+- Deployment/Infrastructure (how to deploy, what's the infrastructure like)
+- Extensibility & Customization: If the project architecture supports it, explain how to extend or customize its functionality (e.g., plugins, theming, custom modules, hooks).
+
+Each section should contain relevant pages. For example, the "Frontend Components" section might include pages for "Home Page", "Repository Wiki Page", "Ask Component", etc.
+
+Return your analysis in the following XML format:
+
+<wiki_structure>
+  <title>[Overall title for the wiki]</title>
+  <description>[Brief description of the repository]</description>
+  <sections>
+    <section id="section-1">
+      <title>[Section title]</title>
+      <pages>
+        <page_ref>page-1</page_ref>
+        <page_ref>page-2</page_ref>
+      </pages>
+      <subsections>
+        <section_ref>section-2</section_ref>
+      </subsections>
+    </section>
+    <!-- More sections as needed -->
+  </sections>
+  <pages>
+    <page id="page-1">
+      <title>[Page title]</title>
+      <description>[Brief description of what this page will cover]</description>
+      <importance>high|medium|low</importance>
+      <relevant_files>
+        <file_path>[Path to a relevant file]</file_path>
+        <!-- More file paths as needed -->
+      </relevant_files>
+      <related_pages>
+        <related>page-2</related>
+        <!-- More related page IDs as needed -->
+      </related_pages>
+      <parent_section>section-1</parent_section>
+    </page>
+    <!-- More pages as needed -->
+  </pages>
+</wiki_structure>
+` : `
 Return your analysis in the following XML format:
 
 <wiki_structure>
@@ -525,6 +620,7 @@ Return your analysis in the following XML format:
     <!-- More pages as needed -->
   </pages>
 </wiki_structure>
+`}
 
 IMPORTANT FORMATTING INSTRUCTIONS:
 - Return ONLY the valid XML structure specified above
@@ -534,11 +630,11 @@ IMPORTANT FORMATTING INSTRUCTIONS:
 - Start directly with <wiki_structure> and end with </wiki_structure>
 
 IMPORTANT:
-1. Create 4-6 pages that would make a comprehensive wiki for this repository
+1. Create ${isComprehensiveView ? '8-12' : '4-6'} pages that would make a ${isComprehensiveView ? 'comprehensive' : 'concise'} wiki for this repository
 2. Each page should focus on a specific aspect of the codebase (e.g., architecture, key features, setup)
 3. The relevant_files should be actual files from the repository that would be used to generate that page
 4. Return ONLY valid XML with the structure specified above, with no markdown code block delimiters`
-        }] 
+        }]
       };
 
       // Add tokens if available
@@ -603,11 +699,14 @@ IMPORTANT:
       let title = '';
       let description = '';
       let pages: WikiPage[] = [];
+      const sections: WikiSection[] = [];
+      let rootSections: string[] = [];
 
       // Try using DOM parsing first
       const titleEl = xmlDoc.querySelector('title');
       const descriptionEl = xmlDoc.querySelector('description');
       const pagesEls = xmlDoc.querySelectorAll('page');
+      const sectionsEls = xmlDoc.querySelectorAll('section');
 
       title = titleEl ? titleEl.textContent || '' : '';
       description = descriptionEl ? descriptionEl.textContent || '' : '';
@@ -619,17 +718,64 @@ IMPORTANT:
         console.warn('DOM parsing failed, trying regex fallback');
       }
 
+      // Parse sections if they exist (for comprehensive view)
+      if (sectionsEls && sectionsEls.length > 0) {
+        // First, collect all sections
+        sectionsEls.forEach(sectionEl => {
+          const id = sectionEl.getAttribute('id') || `section-${sections.length + 1}`;
+          const titleEl = sectionEl.querySelector('title');
+          const pageRefEls = sectionEl.querySelectorAll('page_ref');
+          const sectionRefEls = sectionEl.querySelectorAll('section_ref');
+
+          const title = titleEl ? titleEl.textContent || '' : '';
+
+          const sectionPages: string[] = [];
+          pageRefEls.forEach(el => {
+            if (el.textContent) sectionPages.push(el.textContent);
+          });
+
+          const subsections: string[] = [];
+          sectionRefEls.forEach(el => {
+            if (el.textContent) subsections.push(el.textContent);
+          });
+
+          sections.push({
+            id,
+            title,
+            pages: sectionPages,
+            subsections: subsections.length > 0 ? subsections : undefined
+          });
+        });
+
+        // Determine root sections (those not referenced as subsections)
+        const allSubsections = new Set<string>();
+        sections.forEach(section => {
+          if (section.subsections) {
+            section.subsections.forEach(subsectionId => {
+              allSubsections.add(subsectionId);
+            });
+          }
+        });
+
+        rootSections = sections
+          .filter(section => !allSubsections.has(section.id))
+          .map(section => section.id);
+      }
+
+      // Parse all pages
       pagesEls.forEach(pageEl => {
         const id = pageEl.getAttribute('id') || `page-${pages.length + 1}`;
         const titleEl = pageEl.querySelector('title');
         const importanceEl = pageEl.querySelector('importance');
         const filePathEls = pageEl.querySelectorAll('file_path');
         const relatedEls = pageEl.querySelectorAll('related');
+        const parentSectionEl = pageEl.querySelector('parent_section');
 
         const title = titleEl ? titleEl.textContent || '' : '';
         const importance = importanceEl ?
           (importanceEl.textContent === 'high' ? 'high' :
             importanceEl.textContent === 'medium' ? 'medium' : 'low') : 'medium';
+        const parentId = parentSectionEl ? parentSectionEl.textContent || undefined : undefined;
 
         const filePaths: string[] = [];
         filePathEls.forEach(el => {
@@ -647,7 +793,8 @@ IMPORTANT:
           content: '', // Will be generated later
           filePaths,
           importance,
-          relatedPages
+          relatedPages,
+          parentId
         });
       });
 
@@ -656,8 +803,21 @@ IMPORTANT:
         id: 'wiki',
         title,
         description,
-        pages
+        pages,
+        sections: sections.length > 0 ? sections : undefined,
+        rootSections: rootSections.length > 0 ? rootSections : undefined
       };
+
+      // Automatically switch to comprehensive view if there are more than 6 pages
+      if (pages.length > 6 && !isComprehensiveView) {
+        console.log(`Automatically switching to comprehensive view due to page count (${pages.length} > 6)`);
+        setIsComprehensiveView(true);
+
+        // Update URL to reflect comprehensive view
+        const url = new URL(window.location.href);
+        url.searchParams.set('comprehensive', 'true');
+        window.history.replaceState({}, '', url.toString());
+      }
 
       setWikiStructure(wikiStructure);
       setCurrentPageId(pages.length > 0 ? pages[0].id : undefined);
@@ -738,7 +898,7 @@ IMPORTANT:
     } finally {
       setStructureRequestInProgress(false);
     }
-  }, [generatePageContent, githubToken, gitlabToken, bitbucketToken, repoInfo.type, repoInfo.localPath, pagesInProgress.size, structureRequestInProgress, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, modelExcludedDirs, modelExcludedFiles, language, messages.loading]);
+  }, [generatePageContent, githubToken, gitlabToken, bitbucketToken, repoInfo.type, repoInfo.localPath, pagesInProgress.size, structureRequestInProgress, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, modelExcludedDirs, modelExcludedFiles, language, messages.loading, isComprehensiveView]);
 
   // Fetch repository structure using GitHub or GitLab API
   const fetchRepositoryStructure = useCallback(async () => {
@@ -1097,11 +1257,6 @@ IMPORTANT:
     }
   }, [wikiStructure, generatedPages, repoInfo, language]);
 
-  // 显示模型选项
-  const handleRefreshWiki = useCallback(() => {
-    setShowModelOptions(true);
-  }, []);
-
   const confirmRefresh = useCallback(async () => {
     setShowModelOptions(false);
     setLoadingMessage(messages.loading?.clearingCache || 'Clearing server cache...');
@@ -1118,7 +1273,7 @@ IMPORTANT:
         is_custom_model: isCustomSelectedModelState.toString(),
         custom_model: customSelectedModelState,
       });
-      
+
       // Add file filters configuration
       if (modelExcludedDirs) {
         params.append('excluded_dirs', modelExcludedDirs);
@@ -1126,6 +1281,9 @@ IMPORTANT:
       if (modelExcludedFiles) {
         params.append('excluded_files', modelExcludedFiles);
       }
+
+      // Add comprehensive view parameter
+      params.append('comprehensive', isComprehensiveView.toString());
       const response = await fetch(`/api/wiki_cache?${params.toString()}`, {
         method: 'DELETE',
       });
@@ -1173,14 +1331,14 @@ IMPORTANT:
     setRequestInProgress(false); // Assuming this flag should be reset
 
     // Explicitly trigger the data loading process again by re-invoking what the main useEffect does.
-    // This will first attempt to load from (now hopefully non-existent or soon-to-be-overwritten) server cache, 
+    // This will first attempt to load from (now hopefully non-existent or soon-to-be-overwritten) server cache,
     // then proceed to fetchRepositoryStructure if needed.
     // To ensure fetchRepositoryStructure is called if cache is somehow still there or to force a full refresh:
     // One option is to directly call fetchRepositoryStructure() if force refresh means bypassing cache check.
     // For now, we rely on the standard loadData flow initiated by resetting effectRan and dependencies.
     // This will re-trigger the main data loading useEffect.
     // No direct call to fetchRepositoryStructure here, let the useEffect handle it based on effectRan.current = false.
-  }, [repoInfo.owner, repoInfo.repo, repoInfo.type, language, messages.loading, activeContentRequests, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, modelExcludedDirs, modelExcludedFiles]);
+  }, [repoInfo.owner, repoInfo.repo, repoInfo.type, language, messages.loading, activeContentRequests, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, modelExcludedDirs, modelExcludedFiles, isComprehensiveView]);
 
   // Start wiki generation when component mounts
   useEffect(() => {
@@ -1233,26 +1391,26 @@ IMPORTANT:
       console.log('Skipping duplicate repository fetch/cache check');
     }
 
-    // Clean up function for this effect is not strictly necessary for loadData, 
+    // Clean up function for this effect is not strictly necessary for loadData,
     // but keeping the main unmount cleanup in the other useEffect
   }, [repoInfo.owner, repoInfo.repo, repoInfo.type, language, fetchRepositoryStructure, messages.loading?.fetchingCache]);
 
   // Save wiki to server-side cache when generation is complete
   useEffect(() => {
     const saveCache = async () => {
-      if (!isLoading && 
-          !error && 
-          wikiStructure && 
+      if (!isLoading &&
+          !error &&
+          wikiStructure &&
           Object.keys(generatedPages).length > 0 &&
           Object.keys(generatedPages).length >= wikiStructure.pages.length &&
           !cacheLoadedSuccessfully.current) {
-        
-        const allPagesHaveContent = wikiStructure.pages.every(page => 
+
+        const allPagesHaveContent = wikiStructure.pages.every(page =>
           generatedPages[page.id] && generatedPages[page.id].content && generatedPages[page.id].content !== 'Loading...');
-        
+
         if (allPagesHaveContent) {
           console.log('Attempting to save wiki data to server cache via Next.js proxy');
-          
+
           try {
             const dataToCache = {
               owner: repoInfo.owner,
@@ -1294,41 +1452,39 @@ IMPORTANT:
   const [isModelSelectionModalOpen, setIsModelSelectionModalOpen] = useState(false);
 
   return (
-    <div className="h-screen paper-texture p-4 md:p-8 flex flex-col">
+    <div className="h-screen paper-texture p-4 md:p-6 flex flex-col">
       <style>{wikiStyles}</style>
 
-      <header className="max-w-6xl mx-auto mb-8 h-fit w-full">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="text-[var(--accent-primary)] hover:text-[var(--highlight)] flex items-center gap-1.5 transition-colors border-b border-[var(--border-color)] hover:border-[var(--accent-primary)] pb-0.5">
-              <FaHome /> {messages.repoPage?.home || 'Home'}
-            </Link>
-          </div>
+      <header className="max-w-7xl mx-auto mb-4 h-fit w-full">
+        <div className="flex items-center justify-between">
+          <Link href="/" className="text-[var(--accent-primary)] hover:text-[var(--highlight)] flex items-center gap-1.5 transition-colors">
+            <FaHome className="text-sm" />
+            <span className="text-sm">{messages.repoPage?.home || 'Home'}</span>
+          </Link>
         </div>
       </header>
 
-      <main className="flex-1 max-w-6xl mx-auto overflow-y-auto">
+      <main className="flex-1 max-w-7xl mx-auto overflow-hidden">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg shadow-custom card-japanese">
+          <div className="flex flex-col items-center justify-center p-8 bg-[var(--background)]/30">
             <div className="relative mb-6">
-              <div className="absolute -inset-4 bg-[var(--accent-primary)]/10 rounded-full blur-md animate-pulse"></div>
               <div className="relative flex items-center justify-center">
-                <div className="w-3 h-3 bg-[var(--accent-primary)]/70 rounded-full animate-pulse"></div>
-                <div className="w-3 h-3 bg-[var(--accent-primary)]/70 rounded-full animate-pulse delay-75 mx-2"></div>
-                <div className="w-3 h-3 bg-[var(--accent-primary)]/70 rounded-full animate-pulse delay-150"></div>
+                <div className="w-2 h-2 bg-[var(--accent-primary)]/70 rounded-full animate-pulse"></div>
+                <div className="w-2 h-2 bg-[var(--accent-primary)]/70 rounded-full animate-pulse delay-75 mx-2"></div>
+                <div className="w-2 h-2 bg-[var(--accent-primary)]/70 rounded-full animate-pulse delay-150"></div>
               </div>
             </div>
-            <p className="text-[var(--foreground)] text-center mb-3 font-serif">
+            <p className="text-[var(--foreground)] text-center mb-5 text-sm">
               {loadingMessage || messages.common?.loading || 'Loading...'}
               {isExporting && (messages.loading?.preparingDownload || ' Please wait while we prepare your download...')}
             </p>
 
             {/* Progress bar for page generation */}
             {wikiStructure && (
-              <div className="w-full max-w-md mt-3">
-                <div className="bg-[var(--background)]/50 rounded-full h-2 mb-3 overflow-hidden border border-[var(--border-color)]">
+              <div className="w-full max-w-md mt-2">
+                <div className="bg-[var(--background)]/30 rounded-full h-1.5 mb-2 overflow-hidden">
                   <div
-                    className="bg-[var(--accent-primary)] h-2 rounded-full transition-all duration-300 ease-in-out"
+                    className="bg-[var(--accent-primary)] h-1.5 rounded-full transition-all duration-300 ease-in-out"
                     style={{
                       width: `${Math.max(5, 100 * (wikiStructure.pages.length - pagesInProgress.size) / wikiStructure.pages.length)}%`
                     }}
@@ -1346,17 +1502,17 @@ IMPORTANT:
 
                 {/* Show list of in-progress pages */}
                 {pagesInProgress.size > 0 && (
-                  <div className="mt-4 text-xs">
-                    <p className="text-[var(--muted)] mb-2">
+                  <div className="mt-3 text-xs">
+                    <p className="text-[var(--muted)] mb-1 text-xs">
                       {messages.repoPage?.currentlyProcessing || 'Currently processing:'}
                     </p>
-                    <ul className="text-[var(--foreground)] space-y-1">
+                    <ul className="text-[var(--foreground)] space-y-0.5">
                       {Array.from(pagesInProgress).slice(0, 3).map(pageId => {
                         const page = wikiStructure.pages.find(p => p.id === pageId);
-                        return page ? <li key={pageId} className="truncate border-l-2 border-[var(--accent-primary)]/30 pl-2">{page.title}</li> : null;
+                        return page ? <li key={pageId} className="truncate border-l border-[var(--accent-primary)]/30 pl-1.5 text-xs">{page.title}</li> : null;
                       })}
                       {pagesInProgress.size > 3 && (
-                        <li className="text-[var(--muted)]">
+                        <li className="text-[var(--muted)] text-xs">
                           {language === 'ja'
                             ? `...他に${pagesInProgress.size - 3}ページ`
                             : messages.repoPage?.andMorePages
@@ -1371,19 +1527,19 @@ IMPORTANT:
             )}
           </div>
         ) : error ? (
-          <div className="bg-[var(--highlight)]/5 border border-[var(--highlight)]/30 rounded-lg p-5 mb-4 shadow-sm">
-            <div className="flex items-center text-[var(--highlight)] mb-3">
-              <FaExclamationTriangle className="mr-2" />
-              <span className="font-bold font-serif">{messages.repoPage?.errorTitle || messages.common?.error || 'Error'}</span>
+          <div className="p-8 bg-[var(--background)]/30">
+            <div className="flex items-center text-[var(--highlight)] mb-4">
+              <FaExclamationTriangle className="mr-3 text-base" />
+              <span className="font-medium text-base">{messages.repoPage?.errorTitle || messages.common?.error || 'Error'}</span>
             </div>
-            <p className="text-[var(--foreground)] text-sm mb-3">{error}</p>
-            <p className="text-[var(--muted)] text-xs">
+            <p className="text-[var(--foreground)] text-sm mb-4">{error}</p>
+            <p className="text-[var(--muted)] text-sm mb-6">
               {messages.repoPage?.errorMessageDefault || 'Please check that your repository exists and is public. Valid formats are "owner/repo", "https://github.com/owner/repo", "https://gitlab.com/owner/repo", "https://bitbucket.org/owner/repo", or local folder paths like "C:\\path\\to\\folder" or "/path/to/folder".'}
             </p>
-            <div className="mt-5">
+            <div>
               <Link
                 href="/"
-                className="btn-japanese px-5 py-2 inline-flex items-center gap-1.5"
+                className="bg-[var(--accent-primary)] text-white px-4 py-2 rounded text-sm inline-flex items-center gap-2 hover:bg-[var(--accent-primary)]/90 transition-colors"
               >
                 <FaHome className="text-sm" />
                 {messages.repoPage?.backToHome || 'Back to Home'}
@@ -1391,176 +1547,320 @@ IMPORTANT:
             </div>
           </div>
         ) : wikiStructure ? (
-          <div className="h-full overflow-y-auto flex flex-col lg:flex-row gap-4 w-full overflow-hidden bg-[var(--card-bg)] rounded-lg shadow-custom card-japanese">
-            {/* Wiki Navigation */}
-            <div className="h-full w-full lg:w-80 flex-shrink-0 bg-[var(--background)]/50 rounded-lg rounded-r-none p-5 border-b lg:border-b-0 lg:border-r border-[var(--border-color)] overflow-y-auto">
-              <h3 className="text-lg font-bold text-[var(--foreground)] mb-3 font-serif">{wikiStructure.title}</h3>
-              <p className="text-[var(--muted)] text-sm mb-5 leading-relaxed">{wikiStructure.description}</p>
+          <div className="h-full flex flex-col lg:flex-row w-full overflow-hidden">
+            {/* Wiki Navigation - Left Sidebar */}
+            <div className="h-full w-full lg:w-64 flex-shrink-0 bg-[var(--background)]/20 overflow-y-auto">
+              {/* Repository info at top */}
+              <div className="p-4 mb-2">
+                <div className="flex items-center text-sm text-[var(--foreground)]">
+                  {repoInfo.type === 'local' ? (
+                    <div className="flex items-center">
+                      <FaFolder className="mr-2 text-[var(--muted)]" />
+                      <span className="truncate font-medium">{repoInfo.localPath}</span>
+                    </div>
+                  ) : (
+                    <>
+                      {repoInfo.type === 'github' ? (
+                        <FaGithub className="mr-2 text-[var(--muted)]" />
+                      ) : repoInfo.type === 'gitlab' ? (
+                        <FaGitlab className="mr-2 text-[var(--muted)]" />
+                      ) : (
+                        <FaBitbucket className="mr-2 text-[var(--muted)]" />
+                      )}
+                      <a
+                        href={repoInfo.type === 'github'
+                          ? `https://github.com/${repoInfo.owner}/${repoInfo.repo}`
+                          : repoInfo.type === 'gitlab'
+                          ? `https://gitlab.com/${repoInfo.owner}/${repoInfo.repo}`
+                          : `https://bitbucket.org/${repoInfo.owner}/${repoInfo.repo}`
+                        }
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium hover:text-[var(--accent-primary)] transition-colors"
+                      >
+                        {repoInfo.owner}/{repoInfo.repo}
+                      </a>
+                    </>
+                  )}
+                </div>
+                <h3 className="text-base font-medium text-[var(--foreground)] mt-3">{wikiStructure.title}</h3>
+              </div>
 
-              {/* Display repository info */}
-              <div className="text-xs text-[var(--muted)] mb-5 flex items-center">
-                {repoInfo.type === 'local' ? (
-                  <div className="flex items-center">
-                    <FaFolder className="mr-2" />
-                    <span className="break-all">{repoInfo.localPath}</span>
-                  </div>
-                ) : (
-                  <>
-                    {repoInfo.type === 'github' ? (
-                      <FaGithub className="mr-2" />
-                    ) : repoInfo.type === 'gitlab' ? (
-                      <FaGitlab className="mr-2" />
-                    ) : (
-                      <FaBitbucket className="mr-2" />
-                    )}
-                    <a
-                      href={repoInfo.type === 'github'
-                        ? `https://github.com/${repoInfo.owner}/${repoInfo.repo}`
-                        : repoInfo.type === 'gitlab'
-                        ? `https://gitlab.com/${repoInfo.owner}/${repoInfo.repo}`
-                        : `https://bitbucket.org/${repoInfo.owner}/${repoInfo.repo}`
+              {/* View mode tabs */}
+              <div className="px-4 pb-4">
+                <div className="flex rounded-md overflow-hidden bg-[var(--background)]/30">
+                  <button
+                    onClick={() => {
+                      setIsComprehensiveView(false);
+                      // Update URL to reflect simple view
+                      const url = new URL(window.location.href);
+                      url.searchParams.set('comprehensive', 'false');
+                      window.history.replaceState({}, '', url.toString());
+                    }}
+                    className={`flex-1 py-2 px-3 text-sm transition-colors flex items-center justify-center ${
+                      !isComprehensiveView
+                        ? 'bg-[var(--accent-primary)]/10 text-[var(--accent-primary)]'
+                        : 'text-[var(--foreground)] hover:bg-[var(--background)]/50'
+                    }`}
+                  >
+                    <FaListUl className="mr-2 text-sm" />
+                    <span>{messages.repoPage?.simpleView || "Simple"}</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsComprehensiveView(true);
+                      // Update URL to reflect comprehensive view
+                      const url = new URL(window.location.href);
+                      url.searchParams.set('comprehensive', 'true');
+                      window.history.replaceState({}, '', url.toString());
+
+                      // If we don't have sections yet but we have pages, generate sections
+                      if (wikiStructure && (!wikiStructure.sections || !wikiStructure.rootSections) && wikiStructure.pages.length > 0) {
+                        // Create sections based on page importance
+                        const highImportanceSection = {
+                          id: 'section-high',
+                          title: 'Core Components',
+                          pages: wikiStructure.pages.filter(p => p.importance === 'high').map(p => p.id),
+                          subsections: []
+                        };
+
+                        const mediumImportanceSection = {
+                          id: 'section-medium',
+                          title: 'Features & Functionality',
+                          pages: wikiStructure.pages.filter(p => p.importance === 'medium').map(p => p.id),
+                          subsections: []
+                        };
+
+                        const lowImportanceSection = {
+                          id: 'section-low',
+                          title: 'Additional Information',
+                          pages: wikiStructure.pages.filter(p => p.importance === 'low').map(p => p.id),
+                          subsections: []
+                        };
+
+                        // Only include sections that have pages
+                        const sections = [];
+                        const rootSections = [];
+
+                        if (highImportanceSection.pages.length > 0) {
+                          sections.push(highImportanceSection);
+                          rootSections.push(highImportanceSection.id);
+                        }
+
+                        if (mediumImportanceSection.pages.length > 0) {
+                          sections.push(mediumImportanceSection);
+                          rootSections.push(mediumImportanceSection.id);
+                        }
+
+                        if (lowImportanceSection.pages.length > 0) {
+                          sections.push(lowImportanceSection);
+                          rootSections.push(lowImportanceSection.id);
+                        }
+
+                        // Update the wiki structure with the new sections
+                        setWikiStructure({
+                          ...wikiStructure,
+                          sections,
+                          rootSections
+                        });
                       }
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hover:text-[var(--accent-primary)] transition-colors border-b border-[var(--border-color)] hover:border-[var(--accent-primary)]"
-                    >
-                      {repoInfo.owner}/{repoInfo.repo}
-                    </a>
-                  </>
+                    }}
+                    className={`flex-1 py-2 px-3 text-sm transition-colors flex items-center justify-center ${
+                      isComprehensiveView
+                        ? 'bg-[var(--accent-primary)]/10 text-[var(--accent-primary)]'
+                        : 'text-[var(--foreground)] hover:bg-[var(--background)]/50'
+                    }`}
+                  >
+                    <FaSitemap className="mr-2 text-sm" />
+                    <span>{messages.repoPage?.comprehensiveView || "Comprehensive"}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Wiki navigation - either tree view or flat list */}
+              <div className="px-4 py-2">
+                <h4 className="text-sm font-medium text-[var(--muted)] mb-4">
+                  {messages.repoPage?.pages || 'Pages'}
+                </h4>
+                {isComprehensiveView ? (
+                  (() => {
+                    // Debug information
+                    console.log("Page component: Comprehensive view is active");
+                    console.log("Page component: Wiki structure sections:", wikiStructure.sections);
+                    console.log("Page component: Wiki structure rootSections:", wikiStructure.rootSections);
+
+                    // Check if we have valid sections and rootSections
+                    if (wikiStructure.sections && wikiStructure.sections.length > 0 &&
+                        wikiStructure.rootSections && wikiStructure.rootSections.length > 0) {
+                      return (
+                        <WikiTreeView
+                          wikiStructure={{
+                            ...wikiStructure,
+                            sections: wikiStructure.sections,
+                            rootSections: wikiStructure.rootSections
+                          }}
+                          currentPageId={currentPageId}
+                          onPageSelect={handlePageSelect}
+                          messages={messages}
+                        />
+                      );
+                    } else {
+                      console.warn("Page component: Missing sections or rootSections for tree view, falling back to flat list");
+                      return (
+                        <ul className="space-y-2">
+                          {wikiStructure.pages.map(page => (
+                            <li key={page.id}>
+                              <button
+                                className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${currentPageId === page.id
+                                    ? 'bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] font-medium'
+                                    : 'text-[var(--foreground)] hover:bg-[var(--background)]/50'
+                                  }`}
+                                onClick={() => handlePageSelect(page.id)}
+                              >
+                                <div className="flex items-center">
+                                  <div className={`w-2 h-2 rounded-full mr-2 flex-shrink-0 ${
+                                    page.importance === 'high'
+                                      ? 'bg-[#9b7cb9]'
+                                      : page.importance === 'medium'
+                                        ? 'bg-[#d7c4bb]'
+                                        : 'bg-[#e8927c]'
+                                  }`}></div>
+                                  <span className="truncate">{page.title}</span>
+                                </div>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      );
+                    }
+                  })()
+                ) : (
+                  <ul className="space-y-2">
+                    {wikiStructure.pages.map(page => (
+                      <li key={page.id}>
+                        <button
+                          className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${currentPageId === page.id
+                              ? 'bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] font-medium'
+                              : 'text-[var(--foreground)] hover:bg-[var(--background)]/50'
+                            }`}
+                          onClick={() => handlePageSelect(page.id)}
+                        >
+                          <div className="flex items-center">
+                            <div className={`w-2 h-2 rounded-full mr-2 flex-shrink-0 ${
+                              page.importance === 'high'
+                                ? 'bg-[#9b7cb9]'
+                                : page.importance === 'medium'
+                                  ? 'bg-[#d7c4bb]'
+                                  : 'bg-[#e8927c]'
+                            }`}></div>
+                            <span className="truncate">{page.title}</span>
+                          </div>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </div>
 
-              {/* Refresh Wiki button */}
-              <div className="mb-5">
-                <button
-                  onClick={() => setIsModelSelectionModalOpen(true)}
-                  disabled={isLoading}
-                  className="flex items-center w-full text-xs px-3 py-2 bg-[var(--background)] text-[var(--foreground)] rounded-md hover:bg-[var(--background)]/80 disabled:opacity-50 disabled:cursor-not-allowed border border-[var(--border-color)] transition-colors hover:cursor-pointer"
-                >
-                  <FaSync className={`mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                  {messages.repoPage?.refreshWiki || 'Refresh Wiki'}
-                </button>
-              </div>
+              {/* Action buttons at bottom */}
+              <div className="mt-auto p-4 bg-[var(--background)]/10">
+                <div className="flex gap-2 mb-3">
+                  <button
+                    onClick={confirmRefresh}
+                    disabled={isLoading}
+                    className="flex-1 py-2 px-3 text-sm transition-colors flex items-center justify-center bg-[var(--background)]/20 text-[var(--foreground)] hover:bg-[var(--background)]/30 rounded disabled:opacity-50"
+                  >
+                    <FaSync className={`mr-2 text-sm ${isLoading ? 'animate-spin' : ''}`} />
+                    <span>Refresh</span>
+                  </button>
+                  <button
+                    onClick={() => setIsModelSelectionModalOpen(true)}
+                    disabled={isLoading}
+                    className="flex-1 py-2 px-3 text-sm transition-colors flex items-center justify-center bg-[var(--background)]/20 text-[var(--foreground)] hover:bg-[var(--background)]/30 rounded disabled:opacity-50"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <span>Options</span>
+                  </button>
+                </div>
 
-              {/* Export buttons */}
-              {Object.keys(generatedPages).length > 0 && (
-                <div className="mb-5">
-                  <h4 className="text-sm font-semibold text-[var(--foreground)] mb-3 font-serif">
-                    {messages.repoPage?.exportWiki || 'Export Wiki'}
-                  </h4>
-                  <div className="flex flex-col gap-2">
+                {/* Export buttons */}
+                {Object.keys(generatedPages).length > 0 && (
+                  <div className="flex gap-2">
                     <button
                       onClick={() => exportWiki('markdown')}
                       disabled={isExporting}
-                      className="btn-japanese flex items-center text-xs px-3 py-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex-1 py-2 px-3 text-sm bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] rounded hover:bg-[var(--accent-primary)]/20 flex items-center justify-center disabled:opacity-50"
                     >
-                      <FaDownload className="mr-2" />
-                      {messages.repoPage?.exportAsMarkdown || 'Export as Markdown'}
+                      <FaDownload className="mr-2 text-sm" />
+                      <span>MD</span>
                     </button>
                     <button
                       onClick={() => exportWiki('json')}
                       disabled={isExporting}
-                      className="flex items-center text-xs px-3 py-2 bg-[var(--background)] text-[var(--foreground)] rounded-md hover:bg-[var(--background)]/80 disabled:opacity-50 disabled:cursor-not-allowed border border-[var(--border-color)] transition-colors"
+                      className="flex-1 py-2 px-3 text-sm bg-[var(--background)]/20 text-[var(--foreground)] rounded hover:bg-[var(--background)]/30 flex items-center justify-center disabled:opacity-50"
                     >
-                      <FaFileExport className="mr-2" />
-                      {messages.repoPage?.exportAsJson || 'Export as JSON'}
+                      <FaFileExport className="mr-2 text-sm" />
+                      <span>JSON</span>
                     </button>
                   </div>
-                  {exportError && (
-                    <div className="mt-2 text-xs text-[var(--highlight)]">
-                      {exportError}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <h4 className="text-md font-semibold text-[var(--foreground)] mb-3 font-serif">
-                {messages.repoPage?.pages || 'Pages'}
-              </h4>
-              <ul className="space-y-2">
-                {wikiStructure.pages.map(page => (
-                  <li key={page.id}>
-                    <button
-                      className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${currentPageId === page.id
-                          ? 'bg-[var(--accent-primary)]/20 text-[var(--accent-primary)] border border-[var(--accent-primary)]/30'
-                          : 'text-[var(--foreground)] hover:bg-[var(--background)] border border-transparent'
-                        }`}
-                      onClick={() => handlePageSelect(page.id)}
-                    >
-                      <div className="flex items-center">
-                        <div className={`w-2 h-2 rounded-full mr-2 flex-shrink-0 ${
-                          page.importance === 'high'
-                            ? 'bg-[#9b7cb9]'
-                            : page.importance === 'medium'
-                              ? 'bg-[#d7c4bb]'
-                              : 'bg-[#e8927c]'
-                        }`}></div>
-                        <span className="truncate">{page.title}</span>
-                      </div>
-                    </button>
-                  </li>
-                ))}
-              </ul>
+                )}
+                {exportError && (
+                  <div className="mt-2 text-sm text-[var(--highlight)]">
+                    {exportError}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Wiki Content */}
-            <div id="wiki-content" className="w-full flex-grow p-6 overflow-y-auto">
+            <div id="wiki-content" className="w-full flex-grow p-6 md:p-8 overflow-y-auto">
               {currentPageId && generatedPages[currentPageId] ? (
                 <div>
-                  <h3 className="text-xl font-bold text-[var(--foreground)] mb-4 break-words font-serif">
-                    {generatedPages[currentPageId].title}
-                  </h3>
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-xl font-medium text-[var(--foreground)] break-words">
+                      {generatedPages[currentPageId].title}
+                    </h3>
 
-                  {generatedPages[currentPageId].filePaths.length > 0 && (
-                    <div className="mb-5">
-                      <h4 className="text-sm font-semibold text-[var(--muted)] mb-2">
-                        {messages.repoPage?.relatedFiles || 'Related Files:'}
-                      </h4>
+                    {/* Related pages as pills */}
+                    {generatedPages[currentPageId].relatedPages.length > 0 && (
                       <div className="flex flex-wrap gap-2">
-                        {generatedPages[currentPageId].filePaths.map(path => (
-                          <span key={path} className="bg-[var(--background)]/70 text-xs text-[var(--foreground)] px-3 py-1.5 rounded-md truncate max-w-full border border-[var(--border-color)]">
-                            {path}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="prose prose-sm max-w-none">
-                    <Markdown
-                      content={generatedPages[currentPageId].content}
-                    />
-                  </div>
-
-                  {generatedPages[currentPageId].relatedPages.length > 0 && (
-                    <div className="mt-8 pt-4 border-t border-[var(--border-color)]">
-                      <h4 className="text-sm font-semibold text-[var(--muted)] mb-3">
-                        {messages.repoPage?.relatedPages || 'Related Pages:'}
-                      </h4>
-                      <div className="flex flex-wrap gap-2">
-                        {generatedPages[currentPageId].relatedPages.map(relatedId => {
+                        {generatedPages[currentPageId].relatedPages.slice(0, 3).map(relatedId => {
                           const relatedPage = wikiStructure.pages.find(p => p.id === relatedId);
                           return relatedPage ? (
                             <button
                               key={relatedId}
-                              className="bg-[var(--accent-primary)]/10 hover:bg-[var(--accent-primary)]/20 text-xs text-[var(--accent-primary)] px-3 py-1.5 rounded-md transition-colors truncate max-w-full border border-[var(--accent-primary)]/20"
+                              className="bg-[var(--accent-primary)]/5 hover:bg-[var(--accent-primary)]/10 text-sm text-[var(--accent-primary)] px-3 py-1 rounded transition-colors truncate max-w-[150px]"
                               onClick={() => handlePageSelect(relatedId)}
                             >
                               {relatedPage.title}
                             </button>
                           ) : null;
                         })}
+                        {generatedPages[currentPageId].relatedPages.length > 3 && (
+                          <span className="text-sm text-[var(--muted)] px-2">
+                            +{generatedPages[currentPageId].relatedPages.length - 3}
+                          </span>
+                        )}
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
+
+                  <div className="prose prose-base max-w-none">
+                    <Markdown
+                      content={generatedPages[currentPageId].content}
+                    />
+                  </div>
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center p-8 text-[var(--muted)] h-full">
                   <div className="relative mb-4">
-                    <div className="absolute -inset-2 bg-[var(--accent-primary)]/5 rounded-full blur-md"></div>
-                    <FaBookOpen className="text-4xl relative z-10" />
+                    <div className="absolute -inset-3 bg-[var(--accent-primary)]/5 rounded-full blur-md"></div>
+                    <FaBookOpen className="text-3xl relative z-10" />
                   </div>
-                  <p className="font-serif">
+                  <p className="text-base">
                     {messages.repoPage?.selectPagePrompt || 'Select a page from the navigation to view its content'}
                   </p>
                 </div>
@@ -1570,44 +1870,45 @@ IMPORTANT:
         ) : null}
       </main>
 
-      <footer className="max-w-6xl mx-auto mt-8 flex flex-col gap-4 w-full">
+      <footer className="max-w-7xl mx-auto mt-6 flex flex-col gap-4 w-full">
         {/* Only show Ask component when wiki is successfully generated */}
         {wikiStructure && Object.keys(generatedPages).length > 0 && !isLoading && (
-          <div className="w-full bg-[var(--card-bg)] rounded-lg p-5 mb-4 shadow-custom card-japanese">
-            <button
-              onClick={() => setIsAskSectionVisible(!isAskSectionVisible)}
-              className="w-full flex items-center justify-between text-left mb-3 text-sm font-serif text-[var(--foreground)] hover:text-[var(--accent-primary)] transition-colors"
-              aria-expanded={isAskSectionVisible}
-            >
-              {!isAskSectionVisible && (
-                <span>
-                  {messages.repoPage?.askAboutRepo || 'Ask questions about this repository'}
-                </span>
-              )}
-              {isAskSectionVisible && <span></span>}
-              {isAskSectionVisible ? <FaChevronUp /> : <FaChevronDown />}
-            </button>
+          <div className="w-full bg-[var(--background)]/20 rounded-lg">
+            <div className="px-6 py-3 flex items-center justify-between">
+              <h3 className="text-base font-medium text-[var(--foreground)]">
+                {messages.repoPage?.askAboutRepo || 'Ask about this repository'}
+              </h3>
+              <button
+                onClick={() => setIsAskSectionVisible(!isAskSectionVisible)}
+                className="text-[var(--muted)] hover:text-[var(--accent-primary)] transition-colors"
+                aria-expanded={isAskSectionVisible}
+              >
+                {isAskSectionVisible ? <FaChevronUp size={16} /> : <FaChevronDown size={16} />}
+              </button>
+            </div>
             {isAskSectionVisible && (
-              <Ask
-                repoUrl={repoInfo.owner && repoInfo.repo
-                  ? getRepoUrl(repoInfo.owner, repoInfo.repo, repoInfo.type, repoInfo.localPath)
-                  : "https://github.com/AsyncFuncAI/deepwiki-open"
-                }
-                githubToken={githubToken}
-                gitlabToken={gitlabToken}
-                bitbucketToken={bitbucketToken}
-                provider={selectedProviderState}
-                model={selectedModelState}
-                isCustomModel={isCustomSelectedModelState}
-                customModel={customSelectedModelState}
-                language={language}
-              />
+              <div className="p-6">
+                <Ask
+                  repoUrl={repoInfo.owner && repoInfo.repo
+                    ? getRepoUrl(repoInfo.owner, repoInfo.repo, repoInfo.type, repoInfo.localPath)
+                    : "https://github.com/AsyncFuncAI/deepwiki-open"
+                  }
+                  githubToken={githubToken}
+                  gitlabToken={gitlabToken}
+                  bitbucketToken={bitbucketToken}
+                  provider={selectedProviderState}
+                  model={selectedModelState}
+                  isCustomModel={isCustomSelectedModelState}
+                  customModel={customSelectedModelState}
+                  language={language}
+                />
+              </div>
             )}
           </div>
         )}
-        <div className="flex justify-between items-center gap-4 text-center text-[var(--muted)] text-sm h-fit w-full bg-[var(--card-bg)] rounded-lg p-3 shadow-sm border border-[var(--border-color)]">
-          <p className="flex-1 font-serif">
-            {messages.footer?.copyright || 'DeepWiki - Generate Wiki from GitHub/Gitlab/Bitbucket repositories'}
+        <div className="flex justify-between items-center text-[var(--muted)] text-sm h-fit w-full bg-[var(--background)]/20 rounded-lg p-4">
+          <p className="flex-1">
+            DeepWiki - AI-powered documentation for code repositories
           </p>
           <ThemeToggle />
         </div>

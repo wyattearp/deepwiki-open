@@ -69,7 +69,12 @@
     "changeModel": "Change Model",
     "defaultNote": "These defaults are already applied. Add your custom exclusions above.",
     "hideDefault": "Hide Default",
-    "viewDefault": "View Default"
+    "viewDefault": "View Default",
+    "wikiViewMode": "Wiki View Mode",
+    "simple": "Simple Wiki",
+    "comprehensive": "Comprehensive Wiki",
+    "simpleDescription": "Generates a simple wiki with a flat list of pages. Best for smaller repositories or when you need a quick overview.",
+    "comprehensiveDescription": "Generates a detailed wiki with hierarchical sections and more pages. Recommended for larger repositories or when you need in-depth documentation."
   },
   "footer": {
     "copyright": "DeepWiki - AI-powered documentation for code repositories"
@@ -99,7 +104,12 @@
     "relatedFiles": "Related Files:",
     "relatedPages": "Related Pages:",
     "selectPagePrompt": "Select a page from the navigation to view its content",
-    "askAboutRepo": "Ask questions about this repository"
+    "askAboutRepo": "Ask questions about this repository",
+    "simpleView": "Simple View",
+    "comprehensiveView": "Comprehensive View",
+    "refreshSimpleWiki": "Refresh Simple Wiki",
+    "refreshComprehensiveWiki": "Refresh Comprehensive Wiki",
+    "refreshWikiWithOptions": "With Options"
   },
   "nav": {
     "wikiProjects": "Wiki Projects"
