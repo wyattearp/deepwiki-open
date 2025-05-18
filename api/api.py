@@ -10,6 +10,9 @@ from pydantic import BaseModel, Field
 import google.generativeai as genai
 import asyncio
 
+# Import wiki endpoints
+from api.wiki_endpoints import WikiPageRequest, WikiStructureRequest, generate_wiki_page, generate_wiki_structure
+
 # Get a logger for this module
 logger = logging.getLogger(__name__)
 
@@ -467,6 +470,18 @@ async def delete_wiki_cache(
         logger.warning(f"Wiki cache not found, cannot delete: {cache_path}")
         raise HTTPException(status_code=404, detail="Wiki cache not found")
 
+# --- Wiki Structure and Page Generation Endpoints ---
+
+@app.post("/api/wiki/structure")
+async def wiki_structure(request: WikiStructureRequest):
+    """Generate wiki structure for a repository."""
+    return await generate_wiki_structure(request)
+
+@app.post("/api/wiki/page")
+async def wiki_page(request: WikiPageRequest):
+    """Generate content for a wiki page."""
+    return await generate_wiki_page(request)
+
 @app.get("/")
 async def root():
     """Root endpoint to check if the API is running"""
@@ -480,7 +495,9 @@ async def root():
             "Wiki": [
                 "POST /export/wiki - Export wiki content as Markdown or JSON",
                 "GET /api/wiki_cache - Retrieve cached wiki data",
-                "POST /api/wiki_cache - Store wiki data to cache"
+                "POST /api/wiki_cache - Store wiki data to cache",
+                "POST /api/wiki/structure - Generate wiki structure",
+                "POST /api/wiki/page - Generate wiki page content"
             ],
             "LocalRepo": [
                 "GET /local_repo/structure - Get structure of a local repository (with path parameter)",

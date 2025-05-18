@@ -23,6 +23,14 @@ const nextConfig: NextConfig = {
         source: '/local_repo/structure',
         destination: `${TARGET_SERVER_BASE_URL}/local_repo/structure`,
       },
+      {
+        source: '/api/wiki/structure',
+        destination: `${TARGET_SERVER_BASE_URL}/api/wiki/structure`,
+      },
+      {
+        source: '/api/wiki/page',
+        destination: `${TARGET_SERVER_BASE_URL}/api/wiki/page`,
+      },
     ];
   },
 };
