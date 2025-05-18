@@ -18,9 +18,51 @@ export async function POST(req: NextRequest) {
       language,
       provider,
       model,
-      excluded_dirs: excludedDirs ? excludedDirs.split(',').map((dir: string) => dir.trim()) : [],
-      excluded_files: excludedFiles ? excludedFiles.split(',').map((file: string) => file.trim()) : [],
+      excluded_dirs: [],
+      excluded_files: [],
     };
+
+    // Parse excluded directories
+    if (excludedDirs) {
+      try {
+        // First try to parse as JSON array
+        if (excludedDirs.startsWith('[') && excludedDirs.endsWith(']')) {
+          backendRequestBody.excluded_dirs = JSON.parse(excludedDirs);
+        } else {
+          // Fall back to comma-separated string parsing with proper escaping
+          // This regex splits by commas but ignores commas inside quotes
+          const regex = /,(?=(?:[^"]*"[^"]*")*[^"]*$)/;
+          backendRequestBody.excluded_dirs = excludedDirs
+            .split(regex)
+            .map((dir: string) => dir.trim().replace(/^"|"$/g, ''))  // Remove quotes if present
+            .filter((dir: string) => dir.length > 0);
+        }
+      } catch (e) {
+        console.warn('Error parsing excluded_dirs, using as-is:', e);
+        backendRequestBody.excluded_dirs = [excludedDirs];
+      }
+    }
+
+    // Parse excluded files
+    if (excludedFiles) {
+      try {
+        // First try to parse as JSON array
+        if (excludedFiles.startsWith('[') && excludedFiles.endsWith(']')) {
+          backendRequestBody.excluded_files = JSON.parse(excludedFiles);
+        } else {
+          // Fall back to comma-separated string parsing with proper escaping
+          // This regex splits by commas but ignores commas inside quotes
+          const regex = /,(?=(?:[^"]*"[^"]*")*[^"]*$)/;
+          backendRequestBody.excluded_files = excludedFiles
+            .split(regex)
+            .map((file: string) => file.trim().replace(/^"|"$/g, ''))  // Remove quotes if present
+            .filter((file: string) => file.length > 0);
+        }
+      } catch (e) {
+        console.warn('Error parsing excluded_files, using as-is:', e);
+        backendRequestBody.excluded_files = [excludedFiles];
+      }
+    }
 
     // Add token if available
     if (repoInfo.token) {
