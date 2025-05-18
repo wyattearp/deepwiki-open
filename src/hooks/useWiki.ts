@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { RepoInfo } from '@/types/repoinfo';
 import { WikiStructure, WikiPage } from '@/types/wiki';
 import { WikiService } from '@/services/WikiService';
@@ -66,6 +66,7 @@ export function useWiki({
       effectRan.current = true;
       loadWiki();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [repoInfo.owner, repoInfo.repo, repoInfo.type, language]);
 
   // Function to load wiki from cache or generate it
@@ -86,12 +87,12 @@ export function useWiki({
       if (cachedData) {
         setWikiStructure(cachedData.wikiStructure);
         setGeneratedPages(cachedData.generatedPages);
-        
+
         // Set the first page as the current page if not already set
         if (!currentPageId && cachedData.wikiStructure.pages.length > 0) {
           setCurrentPageId(cachedData.wikiStructure.pages[0].id);
         }
-        
+
         cacheLoadedSuccessfully.current = true;
         setIsLoading(false);
         return;
@@ -111,7 +112,7 @@ export function useWiki({
       );
 
       setWikiStructure(structure);
-      
+
       // Set the first page as the current page
       if (structure.pages.length > 0) {
         setCurrentPageId(structure.pages[0].id);
@@ -134,14 +135,14 @@ export function useWiki({
   // Function to generate content for all pages
   const generateAllPages = async (structure: WikiStructure) => {
     const pages: Record<string, WikiPage> = {};
-    
+
     // Initialize pages with empty content
     structure.pages.forEach(page => {
       pages[page.id] = { ...page, content: 'Loading...' };
     });
-    
+
     setGeneratedPages(pages);
-    
+
     // Generate content for each page
     for (const page of structure.pages) {
       if (isComprehensiveView || page.importance === 'high') {
@@ -156,14 +157,14 @@ export function useWiki({
     if (activeContentRequests.current.get(page.id)) {
       return;
     }
-    
+
     // Mark this page as being processed
     activeContentRequests.current.set(page.id, true);
     setPagesInProgress(prev => new Set(prev).add(page.id));
-    
+
     try {
       setLoadingMessage(`Generating content for "${page.title}"...`);
-      
+
       const content = await WikiService.generatePageContent(
         repoInfo,
         page,
@@ -173,7 +174,7 @@ export function useWiki({
         isCustomModel,
         customModel
       );
-      
+
       // Update the page with the generated content
       setGeneratedPages(prev => ({
         ...prev,
@@ -181,12 +182,12 @@ export function useWiki({
       }));
     } catch (err) {
       console.error(`Error generating content for page ${page.id}:`, err);
-      
+
       // Update the page with an error message
       setGeneratedPages(prev => ({
         ...prev,
-        [page.id]: { 
-          ...page, 
+        [page.id]: {
+          ...page,
           content: `Error generating content: ${err instanceof Error ? err.message : 'Unknown error'}`
         }
       }));
@@ -227,7 +228,7 @@ export function useWiki({
   const refreshWiki = async () => {
     setIsRefreshing(true);
     cacheLoadedSuccessfully.current = false;
-    
+
     try {
       await loadWiki();
     } finally {
@@ -238,19 +239,19 @@ export function useWiki({
   // Function to export wiki as JSON
   const exportWikiAsJson = async () => {
     setExportError(null);
-    
+
     try {
       if (!wikiStructure) {
         throw new Error('Wiki structure not available');
       }
-      
+
       const pages = Object.values(generatedPages);
       const blob = await WikiService.exportWiki(
         repoInfo.repoUrl || `${repoInfo.owner}/${repoInfo.repo}`,
         pages,
         'json'
       );
-      
+
       // Create a download link
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -269,19 +270,19 @@ export function useWiki({
   // Function to export wiki as Markdown
   const exportWikiAsMarkdown = async () => {
     setExportError(null);
-    
+
     try {
       if (!wikiStructure) {
         throw new Error('Wiki structure not available');
       }
-      
+
       const pages = Object.values(generatedPages);
       const blob = await WikiService.exportWiki(
         repoInfo.repoUrl || `${repoInfo.owner}/${repoInfo.repo}`,
         pages,
         'markdown'
       );
-      
+
       // Create a download link
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -300,6 +301,7 @@ export function useWiki({
   // Save to cache when wiki changes
   useEffect(() => {
     saveToCache();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading, error, wikiStructure, generatedPages]);
 
   // Scroll to top when currentPageId changes

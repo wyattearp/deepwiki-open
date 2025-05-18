@@ -16,15 +16,16 @@ const WikiLoading: React.FC<WikiLoadingProps> = ({ loadingMessage }) => {
       <h2 className="text-xl font-bold text-[var(--foreground)] mb-2">Generating Wiki</h2>
       <p className="text-[var(--muted)] text-center mb-4">{loadingMessage}</p>
       <div className="w-64 h-2 bg-[var(--background)] rounded-full overflow-hidden">
-        <div className="h-full bg-[var(--accent-primary)] animate-progress"></div>
+        <div className="h-full bg-[var(--accent-primary)] animate-pulse-width"></div>
       </div>
       <style jsx>{`
-        @keyframes progress {
-          0% { width: 0; }
-          100% { width: 100%; }
+        @keyframes pulse-width {
+          0% { width: 15%; }
+          50% { width: 85%; }
+          100% { width: 15%; }
         }
-        .animate-progress {
-          animation: progress 60s ease-in-out forwards;
+        .animate-pulse-width {
+          animation: pulse-width 2s ease-in-out infinite;
         }
       `}</style>
     </div>

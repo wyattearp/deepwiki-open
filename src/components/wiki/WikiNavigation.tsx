@@ -14,7 +14,12 @@ interface WikiNavigationProps {
   onRefresh: () => void;
   isRefreshing: boolean;
   exportError: string | null;
-  messages: any;
+  messages: {
+    refresh?: string;
+    exportAsMarkdown?: string;
+    exportAsJson?: string;
+    pages?: string;
+  };
 }
 
 const WikiNavigation: React.FC<WikiNavigationProps> = ({

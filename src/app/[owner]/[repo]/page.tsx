@@ -1,14 +1,12 @@
 'use client';
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { FaComments, FaTimes } from 'react-icons/fa';
 import Ask from '@/components/Ask';
 import ModelSelectionModal from '@/components/ModelSelectionModal';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { RepoInfo } from '@/types/repoinfo';
-import { extractUrlDomain, extractUrlPath } from '@/utils/urlDecoder';
-import getRepoUrl from '@/utils/getRepoUrl';
 
 // Import wiki components
 import WikiHeader from '@/components/wiki/WikiHeader';
@@ -19,9 +17,6 @@ import WikiError from '@/components/wiki/WikiError';
 
 // Import hooks
 import { useWiki } from '@/hooks/useWiki';
-
-// Import wiki types
-import { WikiPage, WikiSection, WikiStructure } from '@/types/wiki';
 
 // Add CSS styles for wiki with Japanese aesthetic
 const wikiStyles = `
@@ -178,9 +173,9 @@ export default function RepoWikiPage() {
       <style>{wikiStyles}</style>
 
       {/* Header */}
-      <WikiHeader 
-        repoInfo={repoInfo} 
-        onOpenModelSelection={() => setIsModelSelectionModalOpen(true)} 
+      <WikiHeader
+        repoInfo={repoInfo}
+        onOpenModelSelection={() => setIsModelSelectionModalOpen(true)}
       />
 
       {/* Main content */}

@@ -1,8 +1,6 @@
 import { RepoInfo } from '@/types/repoinfo';
 import { WikiStructure, WikiPage } from '@/types/wiki';
 
-const TARGET_SERVER_BASE_URL = process.env.SERVER_BASE_URL || 'http://localhost:8001';
-
 /**
  * Service for handling wiki-related API calls
  */

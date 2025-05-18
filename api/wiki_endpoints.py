@@ -393,13 +393,14 @@ Your response should be in the following XML format:
         try:
             import re
             import xml.etree.ElementTree as ET
-            from io import StringIO
 
             # Extract the XML content from the response
             xml_match = re.search(r'<wiki_structure>.*?</wiki_structure>', content, re.DOTALL)
 
             if not xml_match:
                 logger.warning("No wiki_structure XML found in the response")
+                # Log the problematic LLM output for debugging
+                logger.debug(f"LLM response without XML structure: {content[:500]}...")
                 # Fallback structure if no XML is found
                 structure = {
                     "id": "wiki-1",
@@ -531,6 +532,11 @@ Your response should be in the following XML format:
                 }
         except Exception as e:
             logger.error(f"Error parsing wiki structure XML: {str(e)}")
+            # Log the problematic XML content for debugging
+            if 'xml_content' in locals():
+                logger.debug(f"Problematic XML content: {xml_content[:500]}...")
+            else:
+                logger.debug(f"No XML content extracted from response: {content[:500]}...")
             # Fallback structure if parsing fails
             structure = {
                 "id": "wiki-1",

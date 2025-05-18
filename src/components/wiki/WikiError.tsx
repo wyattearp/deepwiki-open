@@ -6,7 +6,13 @@ import { FaExclamationTriangle, FaHome } from 'react-icons/fa';
 
 interface WikiErrorProps {
   error: Error | null;
-  messages: any;
+  messages: {
+    repoPage?: {
+      errorTitle?: string;
+      errorMessageDefault?: string;
+      backToHome?: string;
+    };
+  };
 }
 
 const WikiError: React.FC<WikiErrorProps> = ({ error, messages }) => {
