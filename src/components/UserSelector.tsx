@@ -30,7 +30,7 @@ interface ModelSelectorProps {
   setIsCustomModel: (value: boolean) => void;
   customModel: string;
   setCustomModel: (value: string) => void;
-  
+
   // File filter configuration
   showFileFilters?: boolean;
   excludedDirs?: string;
@@ -48,7 +48,7 @@ export default function UserSelector({
   setIsCustomModel,
   customModel,
   setCustomModel,
-  
+
   // File filter configuration
   showFileFilters = false,
   excludedDirs = '',
@@ -59,36 +59,36 @@ export default function UserSelector({
   // State to manage the visibility of the filters modal and filter section
   const [isFilterSectionOpen, setIsFilterSectionOpen] = useState(false);
   const { messages: t } = useLanguage();
-  
+
   // State for model configurations from backend
   const [modelConfig, setModelConfig] = useState<ModelConfig | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // State for viewing default values
   const [showDefaultDirs, setShowDefaultDirs] = useState(false);
   const [showDefaultFiles, setShowDefaultFiles] = useState(false);
-  
+
   // Fetch model configurations from the backend
   useEffect(() => {
     const fetchModelConfig = async () => {
       try {
         setIsLoading(true);
         setError(null);
-        
+
         const response = await fetch('/api/models/config');
-        
+
         if (!response.ok) {
           throw new Error(`Error fetching model configurations: ${response.status}`);
         }
-        
+
         const data = await response.json();
         setModelConfig(data);
-        
+
         // Initialize provider and model with defaults from API if not already set
         if (!provider && data.defaultProvider) {
           setProvider(data.defaultProvider);
-          
+
           // Find the default provider and set its default model
           const selectedProvider = data.providers.find((p: Provider) => p.id === data.defaultProvider);
           if (selectedProvider && selectedProvider.models.length > 0) {
@@ -102,17 +102,17 @@ export default function UserSelector({
         setIsLoading(false);
       }
     };
-    
+
     fetchModelConfig();
-  }, []); 
-  
+  }, [provider, setModel, setProvider]);
+
   // Handler for changing provider
   const handleProviderChange = (newProvider: string) => {
     setProvider(newProvider);
     setTimeout(() => {
       // Reset custom model state when changing providers
       setIsCustomModel(false);
-      
+
       // Set default model for the selected provider
       if (modelConfig) {
         const selectedProvider = modelConfig.providers.find((p: Provider) => p.id === newProvider);
@@ -122,9 +122,9 @@ export default function UserSelector({
       }
     }, 10);
   };
-  
+
   // Default excluded directories from config.py
-  const defaultExcludedDirs = 
+  const defaultExcludedDirs =
 `./.venv/
 ./venv/
 ./env/
@@ -163,7 +163,7 @@ export default function UserSelector({
 ./.eng`;
 
   // Default excluded files from config.py
-  const defaultExcludedFiles = 
+  const defaultExcludedFiles =
 `package-lock.json
 yarn.lock
 pnpm-lock.yaml
@@ -265,7 +265,7 @@ next.config.js
         {error && (
           <div className="text-sm text-red-500 mb-2">{error}</div>
         )}
-        
+
         {/* Provider Selection */}
         <div>
           <label htmlFor="provider-dropdown" className="block text-xs font-medium text-[var(--foreground)] mb-1.5">
@@ -291,7 +291,7 @@ next.config.js
           <label htmlFor={isCustomModel ? "custom-model-input" : "model-dropdown"} className="block text-xs font-medium text-[var(--foreground)] mb-1.5">
             {t.form?.modelSelection || 'Model Selection'}
           </label>
-          
+
           {isCustomModel ? (
             <input
               id="custom-model-input"
@@ -325,7 +325,7 @@ next.config.js
         {modelConfig?.providers.find((p: Provider) => p.id === provider)?.supportsCustomModel && (
           <div className="mb-2">
             <div className="flex items-center pb-1">
-              <div 
+              <div
                 className="relative flex items-center cursor-pointer"
                 onClick={() => {
                   const newValue = !isCustomModel;
@@ -345,8 +345,8 @@ next.config.js
                 <div className={`w-10 h-5 rounded-full transition-colors ${isCustomModel ? 'bg-[var(--accent-primary)]' : 'bg-gray-300 dark:bg-gray-600'}`}></div>
                 <div className={`absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white transition-transform transform ${isCustomModel ? 'translate-x-5' : ''}`}></div>
               </div>
-              <label 
-                htmlFor="use-custom-model" 
+              <label
+                htmlFor="use-custom-model"
                 className="ml-2 text-sm font-medium text-[var(--muted)] cursor-pointer"
                 onClick={(e) => {
                   e.preventDefault();
@@ -373,7 +373,7 @@ next.config.js
               <span className="mr-1.5 text-xs">{isFilterSectionOpen ? '▼' : '►'}</span>
               {t.form?.advancedOptions || 'Advanced Options'}
             </button>
-            
+
             {isFilterSectionOpen && (
               <div className="mt-3 p-3 border border-[var(--border-color)]/70 rounded-md bg-[var(--background)]/30">
                 <div className="mb-4">
@@ -403,7 +403,7 @@ next.config.js
                     </div>
                   )}
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-[var(--muted)] mb-1.5">
                     {t.form?.excludedFiles || 'Excluded Files'}
