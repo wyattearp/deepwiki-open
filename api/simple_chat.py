@@ -62,14 +62,16 @@ class ChatCompletionRequest(BaseModel):
     filePath: Optional[str] = Field(None, description="Optional path to a file in the repository to include in the prompt")
     token: Optional[str] = Field(None, description="Personal access token for private repositories")
     type: Optional[str] = Field("github", description="Type of repository (e.g., 'github', 'gitlab', 'bitbucket')")
-    
+
     # model parameters
     provider: str = Field("google", description="Model provider (google, openai, openrouter, ollama)")
     model: Optional[str] = Field(None, description="Model name for the specified provider")
-    
+
     language: Optional[str] = Field("en", description="Language for content generation (e.g., 'en', 'ja', 'zh', 'es', 'kr', 'vi')")
     excluded_dirs: Optional[str] = Field(None, description="Comma-separated list of directories to exclude from processing")
     excluded_files: Optional[str] = Field(None, description="Comma-separated list of file patterns to exclude from processing")
+    included_dirs: Optional[str] = Field(None, description="Comma-separated list of directories to include exclusively")
+    included_files: Optional[str] = Field(None, description="Comma-separated list of file patterns to include exclusively")
 
 @app.post("/chat/completions/stream")
 async def chat_completions_stream(request: ChatCompletionRequest):
@@ -93,18 +95,38 @@ async def chat_completions_stream(request: ChatCompletionRequest):
             # Extract custom file filter parameters if provided
             excluded_dirs = None
             excluded_files = None
+            included_dirs = None
+            included_files = None
+
             if request.excluded_dirs:
                 excluded_dirs = [unquote(dir_path) for dir_path in request.excluded_dirs.split('\n') if dir_path.strip()]
                 logger.info(f"Using custom excluded directories: {excluded_dirs}")
             if request.excluded_files:
                 excluded_files = [unquote(file_pattern) for file_pattern in request.excluded_files.split('\n') if file_pattern.strip()]
                 logger.info(f"Using custom excluded files: {excluded_files}")
+            if request.included_dirs:
+                included_dirs = [unquote(dir_path) for dir_path in request.included_dirs.split('\n') if dir_path.strip()]
+                logger.info(f"Using custom included directories: {included_dirs}")
+            if request.included_files:
+                included_files = [unquote(file_pattern) for file_pattern in request.included_files.split('\n') if file_pattern.strip()]
+                logger.info(f"Using custom included files: {included_files}")
 
-            request_rag.prepare_retriever(request.repo_url, request.type, request.token, excluded_dirs, excluded_files)
+            request_rag.prepare_retriever(request.repo_url, request.type, request.token, excluded_dirs, excluded_files, included_dirs, included_files)
             logger.info(f"Retriever prepared for {request.repo_url}")
+        except ValueError as e:
+            if "No valid documents with embeddings found" in str(e):
+                logger.error(f"No valid embeddings found: {str(e)}")
+                raise HTTPException(status_code=500, detail="No valid document embeddings found. This may be due to embedding size inconsistencies or API errors during document processing. Please try again or check your repository content.")
+            else:
+                logger.error(f"ValueError preparing retriever: {str(e)}")
+                raise HTTPException(status_code=500, detail=f"Error preparing retriever: {str(e)}")
         except Exception as e:
             logger.error(f"Error preparing retriever: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"Error preparing retriever: {str(e)}")
+            # Check for specific embedding-related errors
+            if "All embeddings should be of the same size" in str(e):
+                raise HTTPException(status_code=500, detail="Inconsistent embedding sizes detected. Some documents may have failed to embed properly. Please try again.")
+            else:
+                raise HTTPException(status_code=500, detail=f"Error preparing retriever: {str(e)}")
 
         # Validate request
         if not request.messages or len(request.messages) == 0:
@@ -393,7 +415,7 @@ This file contains...
 
         # Create the prompt with context
         prompt = f"/no_think {system_prompt}\n\n"
-        
+
         if conversation_history:
             prompt += f"<conversation_history>\n{conversation_history}</conversation_history>\n\n"
 

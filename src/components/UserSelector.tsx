@@ -37,6 +37,10 @@ interface ModelSelectorProps {
   setExcludedDirs?: (value: string) => void;
   excludedFiles?: string;
   setExcludedFiles?: (value: string) => void;
+  includedDirs?: string;
+  setIncludedDirs?: (value: string) => void;
+  includedFiles?: string;
+  setIncludedFiles?: (value: string) => void;
 }
 
 export default function UserSelector({
@@ -54,10 +58,16 @@ export default function UserSelector({
   excludedDirs = '',
   setExcludedDirs,
   excludedFiles = '',
-  setExcludedFiles
+  setExcludedFiles,
+  includedDirs = '',
+  setIncludedDirs,
+  includedFiles = '',
+  setIncludedFiles
 }: ModelSelectorProps) {
   // State to manage the visibility of the filters modal and filter section
   const [isFilterSectionOpen, setIsFilterSectionOpen] = useState(false);
+  // State to manage filter mode: 'exclude' or 'include'
+  const [filterMode, setFilterMode] = useState<'exclude' | 'include'>('exclude');
   const { messages: t } = useLanguage();
 
   // State for model configurations from backend
@@ -376,59 +386,130 @@ next.config.js
 
             {isFilterSectionOpen && (
               <div className="mt-3 p-3 border border-[var(--border-color)]/70 rounded-md bg-[var(--background)]/30">
+                {/* Filter Mode Selection */}
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-[var(--muted)] mb-1.5">
-                    {t.form?.excludedDirs || 'Excluded Directories'}
+                  <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
+                    {t.form?.filterMode || 'Filter Mode'}
                   </label>
-                  <textarea
-                    value={excludedDirs}
-                    onChange={(e) => setExcludedDirs?.(e.target.value)}
-                    rows={4}
-                    className="block w-full rounded-md border border-[var(--border-color)]/50 bg-[var(--input-bg)] text-[var(--foreground)] px-3 py-2 text-sm focus:border-[var(--accent-primary)] focus:ring-1 focus:ring-opacity-50 shadow-sm"
-                    placeholder={t.form?.enterExcludedDirs || 'Enter excluded directories, one per line...'}
-                  />
-                  <div className="flex mt-1.5">
+                  <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={() => setShowDefaultDirs(!showDefaultDirs)}
-                      className="text-xs text-[var(--accent-primary)] hover:text-[var(--accent-primary)]/80 transition-colors"
+                      onClick={() => setFilterMode('exclude')}
+                      className={`flex-1 px-3 py-2 rounded-md border text-sm transition-colors ${
+                        filterMode === 'exclude'
+                          ? 'bg-[var(--accent-primary)]/10 border-[var(--accent-primary)] text-[var(--accent-primary)]'
+                          : 'border-[var(--border-color)] text-[var(--foreground)] hover:bg-[var(--background)]'
+                      }`}
                     >
-                      {showDefaultDirs ? (t.form?.hideDefault || 'Hide Default') : (t.form?.viewDefault || 'View Default')}
+                      {t.form?.excludeMode || 'Exclude Paths'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFilterMode('include')}
+                      className={`flex-1 px-3 py-2 rounded-md border text-sm transition-colors ${
+                        filterMode === 'include'
+                          ? 'bg-[var(--accent-primary)]/10 border-[var(--accent-primary)] text-[var(--accent-primary)]'
+                          : 'border-[var(--border-color)] text-[var(--foreground)] hover:bg-[var(--background)]'
+                      }`}
+                    >
+                      {t.form?.includeMode || 'Include Only Paths'}
                     </button>
                   </div>
-                  {showDefaultDirs && (
-                    <div className="mt-2 p-2 rounded bg-[var(--background)]/50 text-xs">
-                      <p className="mb-1 text-[var(--muted)]">{t.form?.defaultNote || 'These defaults are already applied. Add your custom exclusions above.'}</p>
-                      <pre className="whitespace-pre-wrap font-mono text-[var(--muted)] overflow-y-auto max-h-32">{defaultExcludedDirs}</pre>
-                    </div>
+                  <p className="text-xs text-[var(--muted)] mt-1">
+                    {filterMode === 'exclude'
+                      ? (t.form?.excludeModeDescription || 'Specify paths to exclude from processing (default behavior)')
+                      : (t.form?.includeModeDescription || 'Specify only the paths to include, ignoring all others')
+                    }
+                  </p>
+                </div>
+
+                {/* Directories Section */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-[var(--muted)] mb-1.5">
+                    {filterMode === 'exclude'
+                      ? (t.form?.excludedDirs || 'Excluded Directories')
+                      : (t.form?.includedDirs || 'Included Directories')
+                    }
+                  </label>
+                  <textarea
+                    value={filterMode === 'exclude' ? excludedDirs : includedDirs}
+                    onChange={(e) => {
+                      if (filterMode === 'exclude') {
+                        setExcludedDirs?.(e.target.value);
+                      } else {
+                        setIncludedDirs?.(e.target.value);
+                      }
+                    }}
+                    rows={4}
+                    className="block w-full rounded-md border border-[var(--border-color)]/50 bg-[var(--input-bg)] text-[var(--foreground)] px-3 py-2 text-sm focus:border-[var(--accent-primary)] focus:ring-1 focus:ring-opacity-50 shadow-sm"
+                    placeholder={filterMode === 'exclude'
+                      ? (t.form?.enterExcludedDirs || 'Enter excluded directories, one per line...')
+                      : (t.form?.enterIncludedDirs || 'Enter included directories, one per line...')
+                    }
+                  />
+                  {filterMode === 'exclude' && (
+                    <>
+                      <div className="flex mt-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setShowDefaultDirs(!showDefaultDirs)}
+                          className="text-xs text-[var(--accent-primary)] hover:text-[var(--accent-primary)]/80 transition-colors"
+                        >
+                          {showDefaultDirs ? (t.form?.hideDefault || 'Hide Default') : (t.form?.viewDefault || 'View Default')}
+                        </button>
+                      </div>
+                      {showDefaultDirs && (
+                        <div className="mt-2 p-2 rounded bg-[var(--background)]/50 text-xs">
+                          <p className="mb-1 text-[var(--muted)]">{t.form?.defaultNote || 'These defaults are already applied. Add your custom exclusions above.'}</p>
+                          <pre className="whitespace-pre-wrap font-mono text-[var(--muted)] overflow-y-auto max-h-32">{defaultExcludedDirs}</pre>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
 
+                {/* Files Section */}
                 <div>
                   <label className="block text-sm font-medium text-[var(--muted)] mb-1.5">
-                    {t.form?.excludedFiles || 'Excluded Files'}
+                    {filterMode === 'exclude'
+                      ? (t.form?.excludedFiles || 'Excluded Files')
+                      : (t.form?.includedFiles || 'Included Files')
+                    }
                   </label>
                   <textarea
-                    value={excludedFiles}
-                    onChange={(e) => setExcludedFiles?.(e.target.value)}
+                    value={filterMode === 'exclude' ? excludedFiles : includedFiles}
+                    onChange={(e) => {
+                      if (filterMode === 'exclude') {
+                        setExcludedFiles?.(e.target.value);
+                      } else {
+                        setIncludedFiles?.(e.target.value);
+                      }
+                    }}
                     rows={4}
                     className="block w-full rounded-md border border-[var(--border-color)]/50 bg-[var(--input-bg)] text-[var(--foreground)] px-3 py-2 text-sm focus:border-[var(--accent-primary)] focus:ring-1 focus:ring-opacity-50 shadow-sm"
-                    placeholder={t.form?.enterExcludedFiles || 'Enter excluded files, one per line...'}
+                    placeholder={filterMode === 'exclude'
+                      ? (t.form?.enterExcludedFiles || 'Enter excluded files, one per line...')
+                      : (t.form?.enterIncludedFiles || 'Enter included files, one per line...')
+                    }
                   />
-                  <div className="flex mt-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setShowDefaultFiles(!showDefaultFiles)}
-                      className="text-xs text-[var(--accent-primary)] hover:text-[var(--accent-primary)]/80 transition-colors"
-                    >
-                      {showDefaultFiles ? (t.form?.hideDefault || 'Hide Default') : (t.form?.viewDefault || 'View Default')}
-                    </button>
-                  </div>
-                  {showDefaultFiles && (
-                    <div className="mt-2 p-2 rounded bg-[var(--background)]/50 text-xs">
-                      <p className="mb-1 text-[var(--muted)]">{t.form?.defaultNote || 'These defaults are already applied. Add your custom exclusions above.'}</p>
-                      <pre className="whitespace-pre-wrap font-mono text-[var(--muted)] overflow-y-auto max-h-32">{defaultExcludedFiles}</pre>
-                    </div>
+                  {filterMode === 'exclude' && (
+                    <>
+                      <div className="flex mt-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setShowDefaultFiles(!showDefaultFiles)}
+                          className="text-xs text-[var(--accent-primary)] hover:text-[var(--accent-primary)]/80 transition-colors"
+                        >
+                          {showDefaultFiles ? (t.form?.hideDefault || 'Hide Default') : (t.form?.viewDefault || 'View Default')}
+                        </button>
+                      </div>
+                      {showDefaultFiles && (
+                        <div className="mt-2 p-2 rounded bg-[var(--background)]/50 text-xs">
+                          <p className="mb-1 text-[var(--muted)]">{t.form?.defaultNote || 'These defaults are already applied. Add your custom exclusions above.'}</p>
+                          <pre className="whitespace-pre-wrap font-mono text-[var(--muted)] overflow-y-auto max-h-32">{defaultExcludedFiles}</pre>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
