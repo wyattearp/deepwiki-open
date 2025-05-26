@@ -17,9 +17,6 @@ services:
       - NEXT_PUBLIC_SERVER_BASE_URL=http://localhost:${PORT:-8001}
     volumes:
       - ~/.adalflow:/root/.adalflow  # Persist repository and embedding data
-    deploy:
-      resources:
-        limits:
-          memory: 6G
-        reservations:
-          memory: 2G
+    # Resource limits for docker-compose up (not Swarm mode)
+    mem_limit: 6g
+    mem_reservation: 2g
