@@ -14,6 +14,8 @@
 [![Twitter/X](https://img.shields.io/badge/Twitter-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white)](https://x.com/sashimikun_void)
 [![Discord](https://img.shields.io/badge/Discord-7289DA?style=for-the-badge&logo=discord&logoColor=white)](https://discord.com/invite/VQMBGR8u5v)
 
+[English](./README.md) | [简体中文](./README.zh.md) | [日本語](./README.ja.md) | [Español](./README.es.md) | [한국어](./README.kr.md) | [Tiếng Việt](./README.vi.md)
+
 ## ✨ 特徴
 
 - **即時ドキュメント生成**: あらゆる GitHub、GitLab、または Bitbucket リポジトリを数秒で Wiki に変換
@@ -313,7 +315,7 @@ OPENAI_API_KEY=あなたのOpenAI鍵            # OpenAIモデルに必要
 OPENROUTER_API_KEY=あなたのOpenRouter鍵    # OpenRouterモデルに必要
 
 # OpenAI APIベースURL設定
-OPENAI_API_BASE=https://カスタムAPIエンドポイント.com/v1  # オプション、カスタムOpenAI APIエンドポイント用
+OPENAI_BASE_URL=https://カスタムAPIエンドポイント.com/v1  # オプション、カスタムOpenAI APIエンドポイント用
 ```
 
 ### サービスプロバイダー向けのカスタムモデル選択

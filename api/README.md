@@ -38,7 +38,10 @@ AWS_REGION=us-east-1                          # Optional, defaults to us-east-1
 AWS_ROLE_ARN=your_aws_role_arn                # Optional, for role-based authentication
 
 # OpenAI API Configuration
-OPENAI_API_BASE=https://custom-api-endpoint.com/v1  # Optional, for custom OpenAI API endpoints
+OPENAI_BASE_URL=https://custom-api-endpoint.com/v1  # Optional, for custom OpenAI API endpoints
+
+# Ollama host
+OLLAMA_HOST=https://your_ollama_host"  # Optional: Add Ollama host if not local. default: http://localhost:11434
 
 # Server Configuration
 PORT=8001  # Optional, defaults to 8001
@@ -64,7 +67,7 @@ DeepWiki supports multiple LLM providers. The environment variables above are re
 - **Ollama**: No API key required (runs locally)
 
 ##### Custom OpenAI API Endpoints
-The `OPENAI_API_BASE` variable allows you to specify a custom endpoint for the OpenAI API. This is useful for:
+The `OPENAI_BASE_URL` variable allows you to specify a custom endpoint for the OpenAI API. This is useful for:
 
 - Enterprise users with private API channels
 - Organizations using self-hosted or custom-deployed LLM services
@@ -72,7 +75,7 @@ The `OPENAI_API_BASE` variable allows you to specify a custom endpoint for the O
 
 **Example:** you can use the endpoint which support the OpenAI protocol provided by any organization
 ```
-OPENAI_API_BASE=https://custom-openai-endpoint.com/v1
+OPENAI_BASE_URL=https://custom-openai-endpoint.com/v1
 ```
 
 ##### Configuration Files

@@ -14,6 +14,8 @@
 [![Twitter/X](https://img.shields.io/badge/Twitter-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white)](https://x.com/sashimikun_void)
 [![Discord](https://img.shields.io/badge/Discord-7289DA?style=for-the-badge&logo=discord&logoColor=white)](https://discord.com/invite/VQMBGR8u5v)
 
+[English](./README.md) | [简体中文](./README.zh.md) | [日本語](./README.ja.md) | [Español](./README.es.md) | [한국어](./README.kr.md) | [Tiếng Việt](./README.vi.md)
+
 ## ✨ Características
 
 - **Documentación Instantánea**: Convierte cualquier repositorio de GitHub, GitLab o BitBucket en una wiki en segundos
@@ -191,7 +193,7 @@ OPENAI_API_KEY=tu_clave_api_openai        # Requerida para modelos OpenAI
 OPENROUTER_API_KEY=tu_clave_api_openrouter # Requerida para modelos OpenRouter
 
 # Configuración de URL Base de OpenAI API
-OPENAI_API_BASE=https://punto-final-personalizado.com/v1  # Opcional, para endpoints personalizados de OpenAI API
+OPENAI_BASE_URL=https://punto-final-personalizado.com/v1  # Opcional, para endpoints personalizados de OpenAI API
 
 # Directorio de Configuración
 DEEPWIKI_CONFIG_DIR=/ruta/a/directorio/config/personalizado  # Opcional, para ubicación personalizada de archivos de configuración

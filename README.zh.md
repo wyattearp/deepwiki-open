@@ -14,6 +14,8 @@
 [![Twitter/X](https://img.shields.io/badge/Twitter-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white)](https://x.com/sashimikun_void)
 [![Discord](https://img.shields.io/badge/Discord-7289DA?style=for-the-badge&logo=discord&logoColor=white)](https://discord.com/invite/VQMBGR8u5v)
 
+[English](./README.md) | [简体中文](./README.zh.md) | [日本語](./README.ja.md) | [Español](./README.es.md) | [한국어](./README.kr.md) | [Tiếng Việt](./README.vi.md)
+
 ## ✨ 特点
 
 - **即时文档**：几秒钟内将任何GitHub、GitLab或BitBucket仓库转换为Wiki
@@ -270,7 +272,7 @@ OPENAI_API_KEY=你的OpenAI密钥        # 使用 OpenAI 模型必需
 OPENROUTER_API_KEY=你的OpenRouter密钥 # 使用 OpenRouter 模型必需
 
 # OpenAI API 基础 URL 配置
-OPENAI_API_BASE=https://自定义API端点.com/v1  # 可选，用于自定义 OpenAI API 端点
+OPENAI_BASE_URL=https://自定义API端点.com/v1  # 可选，用于自定义 OpenAI API 端点
 ```
 
 ### 为服务提供者设计的自定义模型选择
@@ -304,7 +306,7 @@ OPENAI_API_KEY=your_openai_api_key        # OpenAI模型必需
 OPENROUTER_API_KEY=your_openrouter_api_key # OpenRouter模型必需
 
 # OpenAI API基础URL配置
-OPENAI_API_BASE=https://custom-api-endpoint.com/v1  # 可选，用于自定义OpenAI API端点
+OPENAI_BASE_URL=https://custom-api-endpoint.com/v1  # 可选，用于自定义OpenAI API端点
 
 # 配置目录
 DEEPWIKI_CONFIG_DIR=/path/to/custom/config/dir  # 可选，用于自定义配置文件位置
