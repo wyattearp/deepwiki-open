@@ -38,7 +38,11 @@ cd deepwiki-open
 
 # Create a .env file with your API keys
 echo "GOOGLE_API_KEY=your_google_api_key" > .env
+# ADD Azure OpenAI endpoint configuration (if using Azure)
 echo "OPENAI_API_KEY=your_openai_api_key" >> .env
+echo "OPENAI_BASE_URL=https://<your-azure-endpoint>.openai.azure.com/v1" >> .env
+echo "OPENAI_API_TYPE=azure" >> .env
+echo "OPENAI_API_VERSION=2023-05-15" >> .env
 # Optional: Add OpenRouter API key if you want to use OpenRouter models
 echo "OPENROUTER_API_KEY=your_openrouter_api_key" >> .env
 # Optional: Add Ollama host if not local. defaults to http://localhost:11434
@@ -61,8 +65,12 @@ For detailed instructions on using DeepWiki with Ollama and Docker, see [Ollama 
 Create a `.env` file in the project root with these keys:
 
 ```
+# Azure OpenAI endpoint configuration (optional)
 GOOGLE_API_KEY=your_google_api_key
 OPENAI_API_KEY=your_openai_api_key
+OPENAI_BASE_URL=https://<your-azure-endpoint>.openai.azure.com/v1
+OPENAI_API_TYPE=azure
+OPENAI_API_VERSION=2023-05-15
 # Optional: Add this if you want to use OpenRouter models
 OPENROUTER_API_KEY=your_openrouter_api_key
 # Optional: Add Ollama host if not local. default: http://localhost:11434
@@ -192,7 +200,9 @@ OPENAI_API_KEY=your_openai_api_key        # Required for OpenAI models
 OPENROUTER_API_KEY=your_openrouter_api_key # Required for OpenRouter models
 
 # OpenAI API Base URL Configuration
-OPENAI_BASE_URL=https://custom-api-endpoint.com/v1  # Optional, for custom OpenAI API endpoints
+OPENAI_BASE_URL=https://custom-api-endpoint.com/v1  # Optional, for custom OpenAI or Azure OpenAI API endpoints
+OPENAI_API_TYPE=azure              # Optional, set to 'azure' for Azure OpenAI
+OPENAI_API_VERSION=<api-version>   # Optional, Azure OpenAI API version (e.g., '2023-05-15')
 
 # Ollama host
 OLLAMA_HOST=your_ollama_host # Optional, if Ollama is not local. default: http://localhost:11434
@@ -249,6 +259,8 @@ The OpenAI Client's base_url configuration is designed primarily for enterprise 
 |----------------------|--------------------------------------------------------------|----------|----------------------------------------------------------------------------------------------------------|
 | `GOOGLE_API_KEY`     | Google Gemini API key for AI generation                      | No | Required only if you want to use Google Gemini models                                                    
 | `OPENAI_API_KEY`     | OpenAI API key for embeddings                                | Yes | Note: This is required even if you're not using OpenAI models, as it's used for embeddings.              |
+| `OPENAI_API_TYPE`    | OpenAI API type (e.g., 'azure' for Azure OpenAI)               | No  | Only needed for Azure OpenAI                                                                           |
+| `OPENAI_API_VERSION` | OpenAI API version for Azure OpenAI (e.g., '2023-05-15')      | No  | Only needed for Azure OpenAI                                                                           |
 | `OPENROUTER_API_KEY` | OpenRouter API key for alternative models                    | No | Required only if you want to use OpenRouter models                                                       |
 | `OLLAMA_HOST`        | Ollama Host (default: http://localhost:11434)                | No | Required only if you want to use external Ollama server                                                  |
 | `PORT`               | Port for the API server (default: 8001)                      | No | If you host API and frontend on the same machine, make sure change port of `SERVER_BASE_URL` accordingly |

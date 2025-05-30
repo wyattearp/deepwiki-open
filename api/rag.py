@@ -205,14 +205,14 @@ class RAG(adal.Component):
     """RAG with one repo.
     If you want to load a new repos, call prepare_retriever(repo_url_or_path) first."""
 
-    def __init__(self, provider="google", model=None, use_s3: bool = False):  # noqa: F841 - use_s3 is kept for compatibility
+    def __init__(self, provider="openai", model=None, use_s3: bool = False):  # noqa: F841 - use_s3 is kept for compatibility
         """
         Initialize the RAG component.
 
         Args:
-            provider: Model provider to use (google, openai, openrouter, ollama)
-            model: Model name to use with the provider
-            use_s3: Whether to use S3 for database storage (default: False)
+        provider: Model provider to use (openai, openrouter, ollama, bedrock)
+        model: Model name to use with the provider
+        use_s3: Whether to use S3 for database storage (default: False)
         """
         super().__init__()
 

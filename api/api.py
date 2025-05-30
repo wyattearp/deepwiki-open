@@ -7,20 +7,11 @@ from typing import List, Optional, Dict, Any, Literal
 import json
 from datetime import datetime
 from pydantic import BaseModel, Field
-import google.generativeai as genai
 import asyncio
 
 # Get a logger for this module
 logger = logging.getLogger(__name__)
 
-# Get API keys from environment variables
-google_api_key = os.environ.get('GOOGLE_API_KEY')
-
-# Configure Google Generative AI
-if google_api_key:
-    genai.configure(api_key=google_api_key)
-else:
-    logger.warning("GOOGLE_API_KEY not found in environment variables")
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -139,7 +130,7 @@ async def get_model_config():
 
         # Create providers from the config file
         providers = []
-        default_provider = configs.get("default_provider", "google")
+        default_provider = configs.get("default_provider", "openai")
 
         # Add provider configuration based on config.py
         for provider_id, provider_config in configs["providers"].items():
@@ -168,19 +159,19 @@ async def get_model_config():
 
     except Exception as e:
         logger.error(f"Error creating model configuration: {str(e)}")
-        # Return some default configuration in case of error
+        # Return a default OpenAI configuration in case of error
         return ModelConfig(
             providers=[
                 Provider(
-                    id="google",
-                    name="Google",
+                    id="openai",
+                    name="OpenAI",
                     supportsCustomModel=True,
                     models=[
-                        Model(id="gemini-2.0-flash", name="Gemini 2.0 Flash")
+                        Model(id="gpt-4o", name="gpt-4o")
                     ]
                 )
             ],
-            defaultProvider="google"
+            defaultProvider="openai"
         )
 
 @app.post("/export/wiki")

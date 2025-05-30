@@ -122,6 +122,9 @@ class OpenAIClient(ModelClient):
 
     Supports both embedding and chat completion APIs, including multimodal capabilities.
 
+    For Azure OpenAI endpoints, set environment variables `OPENAI_API_TYPE='azure'`, \
+    `OPENAI_API_VERSION='<api-version>'`, and `OPENAI_BASE_URL='<your-azure-endpoint>/v1'`.
+
     Users can:
     1. Simplify use of ``Embedder`` and ``Generator`` components by passing `OpenAIClient()` as the `model_client`.
     2. Use this as a reference to create their own API client or extend this class by copying and modifying the code.
@@ -193,7 +196,14 @@ class OpenAIClient(ModelClient):
             raise ValueError(
                 f"Environment variable {self._env_api_key_name} must be set"
             )
-        return OpenAI(api_key=api_key, base_url=self.base_url)
+        client_kwargs = {"api_key": api_key, "base_url": self.base_url}
+        api_type = os.getenv("OPENAI_API_TYPE")
+        if api_type:
+            client_kwargs["api_type"] = api_type
+        api_version = os.getenv("OPENAI_API_VERSION")
+        if api_version:
+            client_kwargs["api_version"] = api_version
+        return OpenAI(**client_kwargs)
 
     def init_async_client(self):
         api_key = self._api_key or os.getenv(self._env_api_key_name)
@@ -201,7 +211,14 @@ class OpenAIClient(ModelClient):
             raise ValueError(
                 f"Environment variable {self._env_api_key_name} must be set"
             )
-        return AsyncOpenAI(api_key=api_key, base_url=self.base_url)
+        client_kwargs = {"api_key": api_key, "base_url": self.base_url}
+        api_type = os.getenv("OPENAI_API_TYPE")
+        if api_type:
+            client_kwargs["api_type"] = api_type
+        api_version = os.getenv("OPENAI_API_VERSION")
+        if api_version:
+            client_kwargs["api_version"] = api_version
+        return AsyncOpenAI(**client_kwargs)
 
     # def _parse_chat_completion(self, completion: ChatCompletion) -> "GeneratorOutput":
     #     # TODO: raw output it is better to save the whole completion as a source of truth instead of just the message

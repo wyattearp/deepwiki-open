@@ -3,7 +3,6 @@ import os
 from typing import List, Optional
 from urllib.parse import unquote
 
-import google.generativeai as genai
 from adalflow.components.model_client.ollama_client import OllamaClient
 from adalflow.core.types import ModelType
 from fastapi import FastAPI, HTTPException
@@ -25,14 +24,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Get API keys from environment variables
-google_api_key = os.environ.get('GOOGLE_API_KEY')
-
-# Configure Google Generative AI
-if google_api_key:
-    genai.configure(api_key=google_api_key)
-else:
-    logger.warning("GOOGLE_API_KEY not found in environment variables")
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -65,7 +56,7 @@ class ChatCompletionRequest(BaseModel):
     type: Optional[str] = Field("github", description="Type of repository (e.g., 'github', 'gitlab', 'bitbucket')")
 
     # model parameters
-    provider: str = Field("google", description="Model provider (google, openai, openrouter, ollama, bedrock)")
+    provider: str = Field("openai", description="Model provider (openai, openrouter, ollama, bedrock)")
     model: Optional[str] = Field(None, description="Model name for the specified provider")
 
     language: Optional[str] = Field("en", description="Language for content generation (e.g., 'en', 'ja', 'zh', 'es', 'kr', 'vi')")
@@ -76,7 +67,7 @@ class ChatCompletionRequest(BaseModel):
 
 @app.post("/chat/completions/stream")
 async def chat_completions_stream(request: ChatCompletionRequest):
-    """Stream a chat completion response directly using Google Generative AI"""
+    """Stream a chat completion response directly using the OpenAI API"""
     try:
         # Check if request contains very large input
         input_too_large = False
@@ -523,15 +514,7 @@ This file contains...
                 model_type=ModelType.LLM
             )
         else:
-            # Initialize Google Generative AI model
-            model = genai.GenerativeModel(
-                model_name=model_config["model"],
-                generation_config={
-                    "temperature": model_config["temperature"],
-                    "top_p": model_config["top_p"],
-                    "top_k": model_config["top_k"]
-                }
-            )
+            raise HTTPException(status_code=400, detail=f"Unsupported provider: {request.provider}. Please use OpenAI, OpenRouter, Ollama, or Bedrock.")
 
         # Create a streaming response
         async def response_stream():
@@ -697,23 +680,8 @@ This file contains...
                                 logger.error(f"Error with AWS Bedrock API fallback: {str(e_fallback)}")
                                 yield f"\nError with AWS Bedrock API fallback: {str(e_fallback)}\n\nPlease check that you have set the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables with valid credentials."
                         else:
-                            # Initialize Google Generative AI model
-                            model_config = get_model_config(request.provider, request.model)
-                            fallback_model = genai.GenerativeModel(
-                                model_name=model_config["model"],
-                                generation_config={
-                                    "temperature": model_config["model_kwargs"].get("temperature", 0.7),
-                                    "top_p": model_config["model_kwargs"].get("top_p", 0.8),
-                                    "top_k": model_config["model_kwargs"].get("top_k", 40)
-                                }
-                            )
-
-                            # Get streaming response using simplified prompt
-                            fallback_response = fallback_model.generate_content(simplified_prompt, stream=True)
-                            # Stream the fallback response
-                            for chunk in fallback_response:
-                                if hasattr(chunk, 'text'):
-                                    yield chunk.text
+                            # Unsupported provider for fallback
+                            raise HTTPException(status_code=400, detail=f"Unsupported provider: {request.provider}")
                     except Exception as e2:
                         logger.error(f"Error in fallback streaming response: {str(e2)}")
                         yield f"\nI apologize, but your request is too large for me to process. Please try a shorter query or break it into smaller parts."
