@@ -52,7 +52,7 @@ class OpenRouterClient(ModelClient):
         # OpenRouter doesn't have a dedicated client library, so we'll use requests directly
         return {
             "api_key": api_key,
-            "base_url": "https://openrouter.ai/api/v1"
+            "base_url": os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
         }
 
     def init_async_client(self):
@@ -64,7 +64,7 @@ class OpenRouterClient(ModelClient):
         # For async, we'll use aiohttp
         return {
             "api_key": api_key,
-            "base_url": "https://openrouter.ai/api/v1"
+            "base_url": os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
         }
 
     def convert_inputs_to_api_kwargs(
@@ -130,18 +130,16 @@ class OpenRouterClient(ModelClient):
             headers = {
                 "Authorization": f"Bearer {self.async_client['api_key']}",
                 "Content-Type": "application/json",
-                "HTTP-Referer": "https://github.com/AsyncFuncAI/deepwiki-open",  # Optional
-                "X-Title": "DeepWiki"  # Optional
             }
 
             # Always use non-streaming mode for OpenRouter
             api_kwargs["stream"] = False
 
-            # Make the API call
-            try:
-                log.info(f"Making async OpenRouter API call to {self.async_client['base_url']}/chat/completions")
-                log.info(f"Request headers: {headers}")
-                log.info(f"Request body: {api_kwargs}")
+            # Determine request timeout
+            timeout = int(os.getenv("OPENROUTER_TIMEOUT", "60"))
+            log.info(f"Making async OpenRouter API call to {self.async_client['base_url']}/chat/completions (timeout={timeout}s)")
+            log.info(f"Request headers: {headers}")
+            log.info(f"Request body: {api_kwargs}")
 
                 async with aiohttp.ClientSession() as session:
                     try:
@@ -149,7 +147,7 @@ class OpenRouterClient(ModelClient):
                             f"{self.async_client['base_url']}/chat/completions",
                             headers=headers,
                             json=api_kwargs,
-                            timeout=60
+                            timeout=timeout
                         ) as response:
                             if response.status != 200:
                                 error_text = await response.text()

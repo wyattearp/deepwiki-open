@@ -39,6 +39,10 @@ cd deepwiki-open
 # Create a .env file with your API keys
 echo "GOOGLE_API_KEY=your_google_api_key" > .env
 echo "OPENAI_API_KEY=your_openai_api_key" >> .env
+# ADD Azure OpenAI endpoint configuration (if using Azure)
+echo "OPENAI_BASE_URL=https://<your-azure-endpoint>.openai.azure.com/v1" >> .env
+echo "OPENAI_API_TYPE=azure" >> .env
+echo "OPENAI_API_VERSION=2023-05-15" >> .env
 # Optional: Add OpenRouter API key if you want to use OpenRouter models
 echo "OPENROUTER_API_KEY=your_openrouter_api_key" >> .env
 # Optional: Add Ollama host if not local. defaults to http://localhost:11434
@@ -61,8 +65,12 @@ For detailed instructions on using DeepWiki with Ollama and Docker, see [Ollama 
 Create a `.env` file in the project root with these keys:
 
 ```
+# Azure OpenAI endpoint configuration (optional)
 GOOGLE_API_KEY=your_google_api_key
 OPENAI_API_KEY=your_openai_api_key
+OPENAI_BASE_URL=https://<your-azure-endpoint>.openai.azure.com/v1
+OPENAI_API_TYPE=azure
+OPENAI_API_VERSION=2023-05-15
 # Optional: Add this if you want to use OpenRouter models
 OPENROUTER_API_KEY=your_openrouter_api_key
 # Optional: Add Ollama host if not local. default: http://localhost:11434
