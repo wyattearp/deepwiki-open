@@ -76,7 +76,11 @@ class ChatCompletionRequest(BaseModel):
 
 @app.post("/chat/completions/stream")
 async def chat_completions_stream(request: ChatCompletionRequest):
-    """Stream a chat completion response directly using Google Generative AI"""
+    """Stream a chat completion response."""
+    # Fallback to OpenAI provider if Google key is missing and provider is set to Google
+    if request.provider == "google" and not google_api_key:
+        logger.info("GOOGLE_API_KEY not found; falling back to OpenAI provider")
+        request.provider = "openai"
     try:
         # Check if request contains very large input
         input_too_large = False

@@ -4,6 +4,7 @@ from adalflow.components.data_process import TextSplitter, ToEmbeddings
 import os
 import subprocess
 import json
+import requests
 import tiktoken
 import logging
 import base64
@@ -445,21 +446,23 @@ def get_github_file_content(repo_url: str, file_path: str, access_token: str = N
         # The API endpoint for getting file content is: /repos/{owner}/{repo}/contents/{path}
         api_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{file_path}"
 
-        # Prepare curl command with authentication if token is provided
-        curl_cmd = ["curl", "-s"]
+        headers = {}
         if access_token:
-            curl_cmd.extend(["-H", f"Authorization: token {access_token}"])
-        curl_cmd.append(api_url)
-
+            headers["Authorization"] = f"token {access_token}"
         logger.info(f"Fetching file content from GitHub API: {api_url}")
-        result = subprocess.run(
-            curl_cmd,
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
+        try:
+            response = requests.get(api_url, headers=headers)
+            response.raise_for_status()
+        except requests.exceptions.RequestException as e:
+            error_msg = str(e)
+            if access_token and access_token in error_msg:
+                error_msg = error_msg.replace(access_token, "***TOKEN***")
+            raise ValueError(f"Error fetching file content: {error_msg}")
 
-        content_data = json.loads(result.stdout.decode("utf-8"))
+        try:
+            content_data = response.json()
+        except json.JSONDecodeError:
+            raise ValueError("Invalid response from GitHub API")
 
         # Check if we got an error response
         if "message" in content_data and "documentation_url" in content_data:
@@ -476,13 +479,6 @@ def get_github_file_content(repo_url: str, file_path: str, access_token: str = N
                 raise ValueError(f"Unexpected encoding: {content_data['encoding']}")
         else:
             raise ValueError("File content not found in GitHub API response")
-
-    except subprocess.CalledProcessError as e:
-        error_msg = e.stderr.decode('utf-8')
-        # Sanitize error message to remove any tokens
-        if access_token and access_token in error_msg:
-            error_msg = error_msg.replace(access_token, "***TOKEN***")
-        raise ValueError(f"Error fetching file content: {error_msg}")
     except json.JSONDecodeError:
         raise ValueError("Invalid response from GitHub API")
     except Exception as e:
@@ -527,39 +523,28 @@ def get_gitlab_file_content(repo_url: str, file_path: str, access_token: str = N
         default_branch = 'main'
 
         api_url = f"{gitlab_domain}/api/v4/projects/{encoded_project_path}/repository/files/{encoded_file_path}/raw?ref={default_branch}"
-        curl_cmd = ["curl", "-s"]
+        headers = {}
         if access_token:
-            curl_cmd.extend(["-H", f"PRIVATE-TOKEN: {access_token}"])
-        curl_cmd.append(api_url)
-
+            headers["PRIVATE-TOKEN"] = access_token
         logger.info(f"Fetching file content from GitLab API: {api_url}")
-        result = subprocess.run(
-            curl_cmd,
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
+        try:
+            response = requests.get(api_url, headers=headers)
+            response.raise_for_status()
+        except requests.exceptions.RequestException as e:
+            error_msg = str(e)
+            if access_token and access_token in error_msg:
+                error_msg = error_msg.replace(access_token, "***TOKEN***")
+            raise ValueError(f"Error fetching file content: {error_msg}")
 
-        content = result.stdout.decode("utf-8")
-
-        # Check for GitLab error response (JSON instead of raw file)
+        content = response.text
         if content.startswith("{") and '"message":' in content:
             try:
-                error_data = json.loads(content)
+                error_data = response.json()
                 if "message" in error_data:
                     raise ValueError(f"GitLab API error: {error_data['message']}")
             except json.JSONDecodeError:
-                # If it's not valid JSON, it's probably the file content
                 pass
-
         return content
-
-    except subprocess.CalledProcessError as e:
-        error_msg = e.stderr.decode('utf-8')
-        # Sanitize error message to remove any tokens
-        if access_token and access_token in error_msg:
-            error_msg = error_msg.replace(access_token, "***TOKEN***")
-        raise ValueError(f"Error fetching file content: {error_msg}")
     except Exception as e:
         raise ValueError(f"Failed to get file content: {str(e)}")
 
@@ -591,37 +576,33 @@ def get_bitbucket_file_content(repo_url: str, file_path: str, access_token: str 
         # The API endpoint for getting file content is: /2.0/repositories/{owner}/{repo}/src/{branch}/{path}
         api_url = f"https://api.bitbucket.org/2.0/repositories/{owner}/{repo}/src/main/{file_path}"
 
-        # Prepare curl command with authentication if token is provided
-        curl_cmd = ["curl", "-s"]
+        headers = {}
         if access_token:
-            curl_cmd.extend(["-H", f"Authorization: Bearer {access_token}"])
-        curl_cmd.append(api_url)
-
+            headers["Authorization"] = f"Bearer {access_token}"
         logger.info(f"Fetching file content from Bitbucket API: {api_url}")
-        result = subprocess.run(
-            curl_cmd,
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
+        try:
+            response = requests.get(api_url, headers=headers)
+        except requests.exceptions.RequestException as e:
+            error_msg = str(e)
+            if access_token and access_token in error_msg:
+                error_msg = error_msg.replace(access_token, "***TOKEN***")
+            raise ValueError(f"Error fetching file content: {error_msg}")
 
-        # Bitbucket API returns the raw file content directly
-        content = result.stdout.decode("utf-8")
-        return content
-
-    except subprocess.CalledProcessError as e:
-        error_msg = e.stderr.decode('utf-8')
-        if e.returncode == 22:  # curl uses 22 to indicate an HTTP error occurred
-            if "HTTP/1.1 404" in error_msg:
-                raise ValueError("File not found on Bitbucket. Please check the file path and repository.")
-            elif "HTTP/1.1 401" in error_msg:
-                raise ValueError("Unauthorized access to Bitbucket. Please check your access token.")
-            elif "HTTP/1.1 403" in error_msg:
-                raise ValueError("Forbidden access to Bitbucket. You might not have permission to access this file.")
-            elif "HTTP/1.1 500" in error_msg:
-                raise ValueError("Internal server error on Bitbucket. Please try again later.")
-            else:
-                raise ValueError(f"Error fetching file content: {error_msg}")
+        status = response.status_code
+        if status == 404:
+            raise ValueError("File not found on Bitbucket. Please check the file path and repository.")
+        elif status == 401:
+            raise ValueError("Unauthorized access to Bitbucket. Please check your access token.")
+        elif status == 403:
+            raise ValueError("Forbidden access to Bitbucket. You might not have permission to access this file.")
+        elif status == 500:
+            raise ValueError("Internal server error on Bitbucket. Please try again later.")
+        elif status != 200:
+            error_msg = response.text
+            if access_token and access_token in error_msg:
+                error_msg = error_msg.replace(access_token, "***TOKEN***")
+            raise ValueError(f"Error fetching file content: {error_msg}")
+        return response.text
     except Exception as e:
         raise ValueError(f"Failed to get file content: {str(e)}")
 

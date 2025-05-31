@@ -187,6 +187,10 @@ configs = {}
 
 # Load all configuration files
 generator_config = load_generator_config()
+# Fallback to OpenAI default provider if no Google API key present
+if not GOOGLE_API_KEY and generator_config.get("default_provider") == "google":
+    logger.warning("GOOGLE_API_KEY not found; falling back to OpenAI as default provider")
+    generator_config["default_provider"] = "openai"
 embedder_config = load_embedder_config()
 repo_config = load_repo_config()
 

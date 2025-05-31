@@ -36,9 +36,9 @@
 git clone https://github.com/AsyncFuncAI/deepwiki-open.git
 cd deepwiki-open
 
-# Create a .env file with your API keys
-echo "GOOGLE_API_KEY=your_google_api_key" > .env
-echo "OPENAI_API_KEY=your_openai_api_key" >> .env
+	# Create a .env file with your API keys (Google key is optional)
+	echo "OPENAI_API_KEY=your_openai_api_key" > .env
+	echo "GOOGLE_API_KEY=your_google_api_key" >> .env  # Optional: only if using Google Gemini models
 # ADD Azure OpenAI endpoint configuration (if using Azure)
 echo "OPENAI_BASE_URL=https://<your-azure-endpoint>.openai.azure.com/v1" >> .env
 echo "OPENAI_API_TYPE=azure" >> .env
@@ -54,9 +54,9 @@ docker-compose up
 
 For detailed instructions on using DeepWiki with Ollama and Docker, see [Ollama Instructions](Ollama-instruction.md).
 
-> 💡 **Where to get these keys:**
-> - Get a Google API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
-> - Get an OpenAI API key from [OpenAI Platform](https://platform.openai.com/api-keys)
+	> 💡 **Where to get these keys:**
+	> - Get an OpenAI API key from [OpenAI Platform](https://platform.openai.com/api-keys)
+	> - (Optional) Get a Google API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
 
 ### Option 2: Manual Setup (Recommended)
 
@@ -65,9 +65,10 @@ For detailed instructions on using DeepWiki with Ollama and Docker, see [Ollama 
 Create a `.env` file in the project root with these keys:
 
 ```
-# Azure OpenAI endpoint configuration (optional)
-GOOGLE_API_KEY=your_google_api_key
-OPENAI_API_KEY=your_openai_api_key
+	# Azure OpenAI endpoint configuration (optional)
+	OPENAI_API_KEY=your_openai_api_key
+	# Optional: add this if you want to use Google Gemini models
+	GOOGLE_API_KEY=your_google_api_key
 OPENAI_BASE_URL=https://<your-azure-endpoint>.openai.azure.com/v1
 OPENAI_API_TYPE=azure
 OPENAI_API_VERSION=2023-05-15
@@ -195,8 +196,8 @@ Each provider requires its corresponding API key environment variables:
 
 ```
 # API Keys
-GOOGLE_API_KEY=your_google_api_key        # Required for Google Gemini models
 OPENAI_API_KEY=your_openai_api_key        # Required for OpenAI models
+GOOGLE_API_KEY=your_google_api_key        # Optional: only required for Google Gemini models; fallback to OpenAI if not set
 OPENROUTER_API_KEY=your_openrouter_api_key # Required for OpenRouter models
 
 # OpenAI API Base URL Configuration
