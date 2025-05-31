@@ -6,11 +6,7 @@ import adalflow as adal
 from adalflow.core.types import Document
 from adalflow.core.component import DataComponent
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+# Logger for this module
 logger = logging.getLogger(__name__)
 
 class OllamaDocumentProcessor(DataComponent):

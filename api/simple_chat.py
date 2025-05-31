@@ -17,12 +17,8 @@ from api.openrouter_client import OpenRouterClient
 from api.bedrock_client import BedrockClient
 from api.rag import RAG
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
 logger = logging.getLogger(__name__)
+
 
 
 # Initialize FastAPI app
@@ -31,13 +27,14 @@ app = FastAPI(
     description="Simplified API for streaming chat completions"
 )
 
-# Configure CORS
+# Configure CORS (optional: override via CORS_ALLOW_ORIGINS env var)
+allowed_origins = os.getenv("CORS_ALLOW_ORIGINS", "*").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Models for the API

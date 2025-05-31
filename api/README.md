@@ -41,7 +41,13 @@ AWS_ROLE_ARN=your_aws_role_arn                # Optional, for role-based authent
 OPENAI_BASE_URL=https://custom-api-endpoint.com/v1  # Optional, for custom OpenAI API endpoints
 
 # Ollama host
-OLLAMA_HOST=https://your_ollama_host"  # Optional: Add Ollama host if not local. default: http://localhost:11434
+OLLAMA_HOST=https://your_ollama_host  # Optional: Add Ollama host if not local. Default: http://localhost:11434
+
+# OpenRouter API endpoint override (optional)
+OPENROUTER_BASE_URL=https://custom-openrouter-endpoint.com/api/v1
+
+# CORS configuration
+CORS_ALLOW_ORIGINS=origin1.com,origin2.com  # Optional: comma-separated list of allowed origins (default: *)
 
 # Server Configuration
 PORT=8001  # Optional, defaults to 8001
@@ -76,6 +82,16 @@ The `OPENAI_BASE_URL` variable allows you to specify a custom endpoint for the O
 **Example:** you can use the endpoint which support the OpenAI protocol provided by any organization
 ```
 OPENAI_BASE_URL=https://custom-openai-endpoint.com/v1
+```
+
+##### Custom OpenRouter API Endpoints
+The `OPENROUTER_BASE_URL` variable allows you to specify a custom endpoint for the OpenRouter API. This is useful for:
+- Self-hosted or private OpenRouter deployments
+- Proxy or enterprise-level API gateways
+
+**Example:**
+```
+OPENROUTER_BASE_URL=https://custom-openrouter-endpoint.com/api/v1
 ```
 
 ##### Configuration Files
