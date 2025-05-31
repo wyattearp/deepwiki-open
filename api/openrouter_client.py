@@ -141,14 +141,14 @@ class OpenRouterClient(ModelClient):
             log.info(f"Request headers: {headers}")
             log.info(f"Request body: {api_kwargs}")
 
-                async with aiohttp.ClientSession() as session:
-                    try:
-                        async with session.post(
-                            f"{self.async_client['base_url']}/chat/completions",
-                            headers=headers,
-                            json=api_kwargs,
-                            timeout=timeout
-                        ) as response:
+            async with aiohttp.ClientSession() as session:
+                try:
+                    async with session.post(
+                        f"{self.async_client['base_url']}/chat/completions",
+                        headers=headers,
+                        json=api_kwargs,
+                        timeout=timeout
+                    ) as response:
                             if response.status != 200:
                                 error_text = await response.text()
                                 log.error(f"OpenRouter API error ({response.status}): {error_text}")
@@ -317,29 +317,29 @@ class OpenRouterClient(ModelClient):
                                     yield "Error: No response content from OpenRouter API"
 
                             return content_generator()
-                    except aiohttp.ClientError as e_client:
-                        log.error(f"Connection error with OpenRouter API: {str(e_client)}")
+                except aiohttp.ClientError as e_client:
+                    log.error(f"Connection error with OpenRouter API: {str(e_client)}")
 
-                        # Return a generator that yields the error message
-                        async def connection_error_generator():
-                            yield f"Connection error with OpenRouter API: {str(e_client)}. Please check your internet connection and that the OpenRouter API is accessible."
-                        return connection_error_generator()
+                    # Return a generator that yields the error message
+                    async def connection_error_generator():
+                        yield f"Connection error with OpenRouter API: {str(e_client)}. Please check your internet connection and that the OpenRouter API is accessible."
+                    return connection_error_generator()
 
-            except RequestException as e_req:
-                log.error(f"Error calling OpenRouter API asynchronously: {str(e_req)}")
+                except RequestException as e_req:
+                    log.error(f"Error calling OpenRouter API asynchronously: {str(e_req)}")
 
-                # Return a generator that yields the error message
-                async def request_error_generator():
-                    yield f"Error calling OpenRouter API: {str(e_req)}"
-                return request_error_generator()
+                    # Return a generator that yields the error message
+                    async def request_error_generator():
+                        yield f"Error calling OpenRouter API: {str(e_req)}"
+                    return request_error_generator()
 
-            except Exception as e_unexp:
-                log.error(f"Unexpected error calling OpenRouter API asynchronously: {str(e_unexp)}")
+                except Exception as e_unexp:
+                    log.error(f"Unexpected error calling OpenRouter API asynchronously: {str(e_unexp)}")
 
-                # Return a generator that yields the error message
-                async def unexpected_error_generator():
-                    yield f"Unexpected error calling OpenRouter API: {str(e_unexp)}"
-                return unexpected_error_generator()
+                    # Return a generator that yields the error message
+                    async def unexpected_error_generator():
+                        yield f"Unexpected error calling OpenRouter API: {str(e_unexp)}"
+                    return unexpected_error_generator()
 
         else:
             error_msg = f"Unsupported model type: {model_type}"

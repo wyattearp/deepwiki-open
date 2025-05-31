@@ -20,7 +20,7 @@ google_api_key = os.environ.get('GOOGLE_API_KEY')
 if google_api_key:
     genai.configure(api_key=google_api_key)
 else:
-    logger.warning("GOOGLE_API_KEY not found in environment variables")
+    logger.info("GOOGLE_API_KEY not found; Google provider disabled, falling back to OpenAI")
 
 # Initialize FastAPI app
 app = FastAPI(
