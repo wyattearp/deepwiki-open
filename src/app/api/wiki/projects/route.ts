@@ -14,6 +14,7 @@ interface ApiProcessedProject {
 // Ensure this matches your Python backend configuration
 const PYTHON_BACKEND_URL = process.env.PYTHON_BACKEND_HOST || 'http://localhost:8001';
 const PROJECTS_API_ENDPOINT = `${PYTHON_BACKEND_URL}/api/processed_projects`;
+const CACHE_API_ENDPOINT = `${PYTHON_BACKEND_URL}/api/wiki_cache`;
 
 export async function GET() {
   try {
@@ -50,4 +51,33 @@ export async function GET() {
       { status: 503 } // Service Unavailable
     );
   }
-} 
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const { owner, repo, repo_type, language } = (await request.json()) as {
+      owner: string;
+      repo: string;
+      repo_type: string;
+      language: string;
+    };
+    const params = new URLSearchParams({ owner, repo, repo_type, language });
+    const response = await fetch(`${CACHE_API_ENDPOINT}?${params}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!response.ok) {
+      let errorBody = { error: response.statusText };
+      try {
+        errorBody = await response.json();
+      } catch {}
+      console.error(`Error deleting project cache (${CACHE_API_ENDPOINT}): ${response.status} - ${JSON.stringify(errorBody)}`);
+      return NextResponse.json(errorBody, { status: response.status });
+    }
+    return NextResponse.json({ message: 'Project deleted successfully' });
+  } catch (error: unknown) {
+    console.error('Error in DELETE /api/wiki/projects:', error);
+    const message = error instanceof Error ? error.message : 'An unknown error occurred';
+    return NextResponse.json({ error: `Failed to delete project: ${message}` }, { status: 500 });
+  }
+}
