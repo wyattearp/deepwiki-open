@@ -10,6 +10,13 @@ interface ApiProcessedProject {
   submittedAt: number;
   language: string;
 }
+// Payload for deleting a project cache
+interface DeleteProjectCachePayload {
+  owner: string;
+  repo: string;
+  repo_type: string;
+  language: string;
+}
 
 // Ensure this matches your Python backend configuration
 const PYTHON_BACKEND_URL = process.env.PYTHON_BACKEND_HOST || 'http://localhost:8001';
@@ -55,12 +62,7 @@ export async function GET() {
 
 export async function DELETE(request: Request) {
   try {
-    const { owner, repo, repo_type, language } = (await request.json()) as {
-      owner: string;
-      repo: string;
-      repo_type: string;
-      language: string;
-    };
+    const { owner, repo, repo_type, language } = (await request.json()) as DeleteProjectCachePayload;
     const params = new URLSearchParams({ owner, repo, repo_type, language });
     const response = await fetch(`${CACHE_API_ENDPOINT}?${params}`, {
       method: 'DELETE',
