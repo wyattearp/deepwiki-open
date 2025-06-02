@@ -48,6 +48,16 @@ echo "OLLAMA_HOST=your_ollama_host" >> .env
 docker-compose up
 ```
 
+#### Optional: trust host system CA certificates
+If your environment uses custom or self-signed root CAs, you can include your host's system CA certificates at build time. This requires Docker BuildKit:
+
+```bash
+DOCKER_BUILDKIT=1 docker-compose build
+docker-compose up
+```
+
+This will mount your host `/etc/ssl/certs` into the build and update the container's CA bundle so Python's requests library uses the system trust store.
+
 For detailed instructions on using DeepWiki with Ollama and Docker, see [Ollama Instructions](Ollama-instruction.md).
 
 > 💡 **Where to get these keys:**
@@ -325,6 +335,8 @@ git clone https://github.com/AsyncFuncAI/deepwiki-open.git
 cd deepwiki-open
 
 # Build the Docker image
+# Optional: include host system CA certificates at build time (requires Docker BuildKit):
+# DOCKER_BUILDKIT=1 docker build -t deepwiki-open .
 docker build -t deepwiki-open .
 
 # Run the container

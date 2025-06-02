@@ -37,6 +37,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     gnupg \
     git \
+    ca-certificates \
     && mkdir -p /etc/apt/keyrings \
     && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
     && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list \
@@ -44,6 +45,10 @@ RUN apt-get update && apt-get install -y \
     && apt-get install -y nodejs \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# Optionally import host system CA certificates at build time (requires BuildKit):
+RUN --mount=type=bind,source=/etc/ssl/certs,target=/usr/local/share/ca-certificates-host:ro \
+    cp /usr/local/share/ca-certificates-host/*.crt /usr/local/share/ca-certificates/ && update-ca-certificates || true
 
 ENV PATH="/opt/venv/bin:$PATH"
 
@@ -82,8 +87,12 @@ exit $?' > /app/start.sh && chmod +x /app/start.sh
 # Set environment variables
 ENV PORT=8001
 ENV NODE_ENV=production
+# Set default server base URL for frontend communication
 ENV SERVER_BASE_URL=http://localhost:${PORT:-8001}
 
+# Use system CA bundle for Python requests (including any imported certificates)
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 # Create empty .env file (will be overridden if one exists at runtime)
 RUN touch .env
 
