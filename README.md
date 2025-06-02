@@ -49,10 +49,10 @@ docker-compose up
 ```
 
 #### Optional: trust host system CA certificates
-If your environment uses custom or self-signed root CAs, you can include your host's system CA certificates at build time. This requires Docker BuildKit:
+If your environment uses custom or self-signed root CAs, you can include your host's system CA certificates at build time. This requires Docker BuildKit and setting IMPORT_HOST_CERTS=true:
 
 ```bash
-DOCKER_BUILDKIT=1 docker-compose build
+DOCKER_BUILDKIT=1 IMPORT_HOST_CERTS=true docker-compose build
 docker-compose up
 ```
 
@@ -335,8 +335,8 @@ git clone https://github.com/AsyncFuncAI/deepwiki-open.git
 cd deepwiki-open
 
 # Build the Docker image
-# Optional: include host system CA certificates at build time (requires Docker BuildKit):
-# DOCKER_BUILDKIT=1 docker build -t deepwiki-open .
+# Optional: include host system CA certificates at build time (requires Docker BuildKit and IMPORT_HOST_CERTS=true):
+# DOCKER_BUILDKIT=1 IMPORT_HOST_CERTS=true docker build -t deepwiki-open .
 docker build -t deepwiki-open .
 
 # Run the container

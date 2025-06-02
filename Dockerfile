@@ -1,4 +1,5 @@
 # syntax=docker/dockerfile:1-labs
+ARG IMPORT_HOST_CERTS=false
 
 FROM node:20-alpine AS node_base
 
@@ -46,9 +47,11 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Optionally import host system CA certificates at build time (requires BuildKit):
+# Optionally import host system CA certificates at build time (requires BuildKit and IMPORT_HOST_CERTS=true):
 RUN --mount=type=bind,source=/etc/ssl/certs,target=/usr/local/share/ca-certificates-host:ro \
-    cp /usr/local/share/ca-certificates-host/*.crt /usr/local/share/ca-certificates/ && update-ca-certificates || true
+    if [ "$IMPORT_HOST_CERTS" = "true" ]; then \
+      cp /usr/local/share/ca-certificates-host/*.crt /usr/local/share/ca-certificates/ && update-ca-certificates; \
+    fi
 
 ENV PATH="/opt/venv/bin:$PATH"
 

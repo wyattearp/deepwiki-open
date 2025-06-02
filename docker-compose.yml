@@ -5,6 +5,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        IMPORT_HOST_CERTS: ${IMPORT_HOST_CERTS:-false}
     ports:
       - "${PORT:-8001}:${PORT:-8001}"  # API port
       - "3000:3000"  # Next.js port
