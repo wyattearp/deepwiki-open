@@ -478,8 +478,6 @@ def get_github_file_content(repo_url: str, file_path: str, access_token: str = N
         else:
             raise ValueError("File content not found in GitHub API response")
 
-    except json.JSONDecodeError:
-        raise ValueError("Invalid response from GitHub API")
     except Exception as e:
         raise ValueError(f"Failed to get file content: {str(e)}")
 
