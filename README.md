@@ -2,7 +2,7 @@
 
 [![DeepWiki Banner](screenshots/Deepwiki.png)](/screenshots/Deepwiki.png)
 
-DeepWiki automatically creates beautiful, interactive wikis for any GitHub, GitLab, or Bitbucket repository. Simply enter a repository URL, and DeepWiki will analyze your code, generate documentation, and visualize the architecture as an interactive wiki.
+DeepWiki helps you automatically create beautiful, interactive wikis for any GitHub, GitLab, or Bitbucket repository. Simply enter a repository URL, and DeepWiki will analyze your code, generate documentation, and visualize the architecture as an interactive wiki.
 
 [![Buy Me A Coffee](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://buymeacoffee.com/sheing)
 [![Tip in Crypto](https://tip.md/badge.svg)](https://tip.md/sng-asyncfunc)
