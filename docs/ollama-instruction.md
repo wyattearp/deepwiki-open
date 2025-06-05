@@ -1,3 +1,8 @@
+---
+title: Using DeepWiki with Ollama
+sidebar_label: Ollama Guide
+---
+
 # Using DeepWiki with Ollama: Beginner's Guide
 
 DeepWiki supports local AI models through Ollama, which is perfect if you want to:
@@ -70,7 +75,7 @@ npm run dev
 3. Check the use "Local Ollama Model" option
 4. Click "Generate Wiki"
 
-![Ollama Option](screenshots/Ollama.png)
+![Ollama Option](/screenshots/Ollama.png)
 
 ## Alternative using Dockerfile
 
