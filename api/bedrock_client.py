@@ -53,10 +53,12 @@ class BedrockClient(ModelClient):
             aws_role_arn: AWS IAM role ARN for role-based authentication. If not provided, will use environment variable AWS_ROLE_ARN.
         """
         super().__init__(*args, **kwargs)
-        self.aws_access_key_id = aws_access_key_id or os.environ.get("AWS_ACCESS_KEY_ID")
-        self.aws_secret_access_key = aws_secret_access_key or os.environ.get("AWS_SECRET_ACCESS_KEY")
-        self.aws_region = aws_region or os.environ.get("AWS_REGION", "us-east-1")
-        self.aws_role_arn = aws_role_arn or os.environ.get("AWS_ROLE_ARN")
+        from api.config import AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION, AWS_ROLE_ARN
+
+        self.aws_access_key_id = aws_access_key_id or AWS_ACCESS_KEY_ID
+        self.aws_secret_access_key = aws_secret_access_key or AWS_SECRET_ACCESS_KEY
+        self.aws_region = aws_region or AWS_REGION or "us-east-1"
+        self.aws_role_arn = aws_role_arn or AWS_ROLE_ARN
         
         self.sync_client = self.init_sync_client()
         self.async_client = None  # Initialize async client only when needed

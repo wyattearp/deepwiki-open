@@ -23,6 +23,15 @@ if missing_vars:
     logger.warning(f"Missing environment variables: {', '.join(missing_vars)}")
     logger.warning("Some functionality may not work correctly without these variables.")
 
+# Configure Google Generative AI
+import google.generativeai as genai
+from api.config import GOOGLE_API_KEY
+
+if GOOGLE_API_KEY:
+    genai.configure(api_key=GOOGLE_API_KEY)
+else:
+    logger.warning("GOOGLE_API_KEY not configured")
+
 if __name__ == "__main__":
     # Get port from environment variable or use default
     port = int(os.environ.get("PORT", 8001))
