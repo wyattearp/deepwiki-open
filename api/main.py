@@ -9,8 +9,8 @@ load_dotenv()
 
 from api.logging_config import setup_logging
 
-# Setup logging with detailed format for main
-setup_logging(format="%(asctime)s - %(lineno)d %(filename)s:%(funcName)s - %(levelname)s - %(message)s")
+# Configure logging
+setup_logging()
 logger = logging.getLogger(__name__)
 
 # Add the current directory to the path so we can import the api package

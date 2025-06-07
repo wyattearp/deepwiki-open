@@ -15,7 +15,7 @@ from api.openai_client import OpenAIClient
 from api.openrouter_client import OpenRouterClient
 from api.rag import RAG
 
-# Unified logging setup
+# Configure logging
 from api.logging_config import setup_logging
 
 setup_logging()
