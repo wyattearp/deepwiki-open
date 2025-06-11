@@ -409,6 +409,15 @@ The API server provides:
 
 For more details, see the [API README](./api/README.md).
 
+### 🧪 API Testing
+Ensure the Docker container is running, drop into it:
+```bash
+docker compose up
+# replace deepwiki-open-deepwiki-1 with your container name
+docker exec -it deepwiki-open-deepwiki-1 /bin/bash
+python -m unittest discover -v
+```
+
 ## 🔌 OpenRouter Integration
 
 DeepWiki now supports [OpenRouter](https://openrouter.ai/) as a model provider, giving you access to hundreds of AI models through a single API:
